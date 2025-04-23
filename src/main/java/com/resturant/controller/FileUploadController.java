@@ -2,7 +2,18 @@ package com.resturant.controller;
 
 
 import com.resturant.dto.ImageDTO;
+import com.resturant.dto.response.SuccessResponse;
+import com.resturant.exception.ErrorResponse;
 import com.resturant.service.FileManagementService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
@@ -13,8 +24,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -22,85 +33,88 @@ import java.util.Map;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/images")
-
+@RequestMapping("/images")
+@Tag(name = "Image Management", description = "Operations for managing food images")
 public class FileUploadController {
 
     @Autowired
     FileManagementService fileManagementService;
 
-//    @PostMapping("/upload")
-//    public ResponseEntity<String> uploadFoodImage(@RequestParam("file") MultipartFile file) {
-//        try {
-//            String fileName = fileManagementService.saveFile(file);
-//            return ResponseEntity.ok("Image uploaded successfully: " + fileName);
-//        } catch (IOException e) {
-//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-//                    .body("Failed to upload image: " + e.getMessage());
-//        }
-//    }
-//    @GetMapping("/{filename}")
-//    public ResponseEntity<Resource> getFile(@PathVariable String filename) {
-//        try {
-//            Resource fileData = fileManagementService.loadFile(filename);
-//            if (fileData.exists()) {
-//                // Return the file content with the appropriate media type (JPEG, PNG, etc.)
-//                return ResponseEntity.ok()
-//                        .contentType(getMediaType(filename))  // Dynamically set the content type based on file extension
-//                        .body(fileData);
-//            } else {
-//                // Return 404 if file not found
-//                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
-//            }
-//        } catch (MalformedURLException e) {
-//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-//                    .body(null);  // Return an error response if file loading fails
-//        }
-//    }
-//
-//    @GetMapping
-//    public ResponseEntity<?> getAllFileNames() {
-//        try {
-//            List<String> filenames = fileManagementService.listAllFiles();
-//            return ResponseEntity.ok(filenames);
-//        } catch (IOException e) {
-//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Could not list files.");
-//        }
-//    }
-//
-//    @DeleteMapping("/{filename}")
-//    public ResponseEntity<String> deleteFile(@PathVariable String filename) {
-//        boolean deleted = fileManagementService.deleteFile(filename);
-//        if (deleted) {
-//            return ResponseEntity.ok("File deleted successfully: " + filename);
-//        } else {
-//            return ResponseEntity.status(404).body("File not found: " + filename);
-//        }
-//    }
-//
-//    private MediaType getMediaType(String filename) {
-//        if (filename.endsWith(".png")) {
-//            return MediaType.IMAGE_PNG;
-//        } else if (filename.endsWith(".jpg") || filename.endsWith(".jpeg")) {
-//            return MediaType.IMAGE_JPEG;
-//        } else {
-//            return MediaType.APPLICATION_OCTET_STREAM;  // Generic binary data
-//        }
-//    }
-@PostMapping("/upload")
-public ResponseEntity<String> uploadImage(@RequestParam("file") MultipartFile file) {
-    try {
-        String fileName = fileManagementService.saveFile(file);
-        return ResponseEntity.ok("Image uploaded successfully: " + fileName);
-    } catch (IOException e) {
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body("Failed to upload image: " + e.getMessage());
+    @Autowired
+    HttpServletRequest request;
+
+    @PostMapping("/upload")
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Success",
+                    content = @Content(
+                            mediaType = "text/plain",
+                            schema = @Schema(implementation = String.class),
+                            examples = @ExampleObject(
+                                    value = "\"Image uploaded successfully: doro_wot.jpg\""
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Bad Request",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorResponse.class)
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "500",
+                    description = "Internal Error",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorResponse.class)
+                    )
+            )
+    })
+    public ResponseEntity<String> uploadImage(
+            @Parameter(
+                    description = "Image file to upload",
+                    required = true,
+                    content = @Content(mediaType = "multipart/form-data",
+                            schema = @Schema(type = "string", format = "binary"))
+            )
+            @RequestParam("file") MultipartFile file) {
+        try {
+            String fileName = fileManagementService.saveFile(file);
+            return ResponseEntity.ok("Image uploaded successfully: " + fileName);
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to upload image: " + e.getMessage());
+        }
     }
-}
 
     // Get image file (returns actual image data)
     @GetMapping("/{filename:.+}")
-    public ResponseEntity<Resource> getImage(@PathVariable String filename) {
+    @Operation(
+            summary = "Get image content",
+            description = "Retrieve the actual image file by filename"
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Image file returned",
+                    content = @Content(mediaType = "image/*")
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Image not found"
+            )
+    })
+    public ResponseEntity<Resource> getImage(
+            @Parameter(
+                    description = "Name of the image file",
+                    example = "doro_wot.jpg",
+                    required = true
+            )
+            @PathVariable String filename) {
+
         try {
             Resource file = fileManagementService.loadFile(filename);
             return ResponseEntity.ok()
@@ -115,6 +129,21 @@ public ResponseEntity<String> uploadImage(@RequestParam("file") MultipartFile fi
 
     // Get list of all images (metadata only)
     @GetMapping
+    @Operation(
+            summary = "List all images",
+            description = "Get metadata for all uploaded images"
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "List of image metadata",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = ImageDTO.class)))
+            ),
+            @ApiResponse(
+                    responseCode = "500",
+                    description = "Internal server error",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
     public ResponseEntity<List<ImageDTO>> getAllImages() {
         try {
             List<ImageDTO> fileInfos = fileManagementService.listAllFiles();
@@ -126,48 +155,103 @@ public ResponseEntity<String> uploadImage(@RequestParam("file") MultipartFile fi
 
     // Delete image
     @DeleteMapping("/{filename}")
-    public ResponseEntity<?> deleteFile(@PathVariable String filename) {
+    @Operation(
+            summary = "Delete an image",
+            description = "Remove an image file from storage"
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Image deleted successfully",
+                    content = @Content(schema = @Schema(implementation = SuccessResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "Permission denied",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Image not found",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(
+                    responseCode = "500",
+                    description = "Internal server error",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public ResponseEntity<?> deleteFile(
+            @Parameter(
+                    description = "Name of the image file to delete",
+                    example = "doro_wot.jpg",
+                    required = true
+            )@PathVariable String filename,
+             HttpServletRequest request) {
+        String requestPath = request.getRequestURI(); // This returns String
+
         try {
             // Log the deletion attempt
             log.debug("Attempting to delete file: {}", filename);
 
             // First verify if file exists (optional but helpful)
             if (!fileManagementService.fileExists(filename)) {
+
                 log.warn("File not found for deletion: {}", filename);
+
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(createErrorResponse("FILE_NOT_FOUND",
-                                "File not found: " + filename, filename));
+                        .body(new com.resturant.dto.response.ErrorResponse(HttpStatus.NOT_FOUND,
+                                "FILE_NOT_FOUND",
+                                "File not found: "+ filename,
+                                requestPath));
+            }
+            boolean deleted = fileManagementService.deleteFile(filename);
+            if(!deleted) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(new com.resturant.dto.response.ErrorResponse(
+                                HttpStatus.INTERNAL_SERVER_ERROR,
+                                "DELETION_FAILED",
+                                "Failed to delte file",
+                                requestPath));
+            }
+            return ResponseEntity.noContent().build();
+        }catch (Exception e){
+                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                            .body(new com.resturant.dto.response.ErrorResponse(
+                                    HttpStatus.INTERNAL_SERVER_ERROR,
+                                    "SERVER_ERROR",
+                                    "Error: "+ e.getMessage(),
+                                    requestPath));
+
+                }
             }
 
             // Attempt deletion
-            boolean deleted = fileManagementService.deleteFile(filename);
-
-            if (deleted) {
-                log.info("Successfully deleted file: {}", filename);
-                return ResponseEntity.ok(createSuccessResponse("FILE_DELETED",
-                        "File deleted successfully", filename));
-            } else {
-                log.warn("File deletion failed (unknown reason): {}", filename);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body(createErrorResponse("DELETION_FAILED",
-                                "Failed to delete file", filename));
-            }
-
-        } catch (SecurityException e) {
-            log.error("Security violation while deleting {}: {}", filename, e.getMessage());
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(createErrorResponse("SECURITY_VIOLATION",
-                            e.getMessage(), filename));
-        } catch (IOException e) {
-            log.error("IO error while deleting {}: {}", filename, e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(createErrorResponse("IO_ERROR",
-                            "File deletion failed: " + e.getMessage(), filename));
-        }
-    }
-
-
-    // Helper methods for consistent responses
+//            boolean deleted = fileManagementService.deleteFile(filename);
+//
+//            if (deleted) {
+//                log.info("Successfully deleted file: {}", filename);
+//                return ResponseEntity.ok(createSuccessResponse("FILE_DELETED",
+//                        "File deleted successfully", filename));
+//            } else {
+//                log.warn("File deletion failed (unknown reason): {}", filename);
+//                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+//                        .body(createErrorResponse("DELETION_FAILED",
+//                                "Failed to delete file", filename));
+//            }
+//
+//        } catch (SecurityException e) {
+//            log.error("Security violation while deleting {}: {}", filename, e.getMessage());
+//            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+//                    .body(createErrorResponse("SECURITY_VIOLATION",
+//                            e.getMessage(), filename));
+//        } catch (IOException e) {
+//            log.error("IO error while deleting {}: {}", filename, e.getMessage());
+//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+//                    .body(createErrorResponse("IO_ERROR",
+//                            "File deletion failed: " + e.getMessage(), filename));
+//        }
+//    }
+//
+//
+//    // Helper methods for consistent responses
     private Map<String, Object> createSuccessResponse(String code, String message, String filename) {
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("status", "success");

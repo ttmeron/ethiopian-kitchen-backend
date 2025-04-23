@@ -2,6 +2,7 @@ package com.resturant.exception;
 
 import lombok.Getter;
 import lombok.Setter;
+import org.springframework.http.HttpStatus;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 
@@ -25,6 +26,7 @@ public class ErrorResponse {
                 .map(FieldErrorDetail::new)
                 .collect(Collectors.toList());
     }
+
 
     public static class FieldErrorDetail {
         private final String field;

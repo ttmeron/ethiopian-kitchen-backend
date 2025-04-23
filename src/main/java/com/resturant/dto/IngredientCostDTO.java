@@ -1,5 +1,6 @@
 package com.resturant.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.*;
 
 import javax.validation.constraints.*;
@@ -9,9 +10,19 @@ import java.math.BigDecimal;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Schema(description = "Ingredient information with cost details")
 public class IngredientCostDTO {
+    @Schema(
+            description = "ID of the ingredient",
+            example = "1",
+            requiredMode = Schema.RequiredMode.REQUIRED
+    )
     @NotNull
     private Long id;
+    @Schema(
+            description = "Additional cost for this ingredient in this dish",
+            example = "15.00"
+    )
     @PositiveOrZero
     private BigDecimal extraCost;
 }
