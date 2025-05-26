@@ -29,6 +29,8 @@ public class Food {
     private BigDecimal price;
 
     private String description;
+    @Column(name = "category")
+    private String category;
     private String imagePath;
 
     @OneToMany(mappedBy = "food", cascade = CascadeType.ALL, orphanRemoval = true)

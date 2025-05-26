@@ -16,11 +16,13 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import javax.validation.Valid;
 import java.io.IOException;
@@ -37,6 +39,10 @@ public class FoodController {
     FoodServiceImpl foodService;
     @Autowired
     FileManagementService fileManagementService;
+
+
+    @Value("${file.upload-dir}")
+    private String uploadDir;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(
@@ -74,12 +80,12 @@ public class FoodController {
             )
             @RequestPart(value = "imageFile", required = false) MultipartFile imageFile){
 
-          try {
-              ObjectMapper mapper = new ObjectMapper();
-              FoodRequestDTO foodRequestDTO = mapper.readValue(rawJson, FoodRequestDTO.class);
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            FoodRequestDTO foodRequestDTO = mapper.readValue(rawJson, FoodRequestDTO.class);
 
 
-              System.out.println("Food request: " + foodRequestDTO);
+            System.out.println("Food request: " + foodRequestDTO);
             if (imageFile != null && !imageFile.isEmpty()) {
                 System.out.println("Image file content type: " + imageFile.getContentType());
 

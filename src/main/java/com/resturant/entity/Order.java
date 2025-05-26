@@ -26,6 +26,9 @@ public class Order {
 
     private BigDecimal totalPrice;
 
+    @Column(name = "special_instructions", length = 500)
+    private String specialInstructions;
+
     @Enumerated(EnumType.STRING)
     private OrderStatus status;
 

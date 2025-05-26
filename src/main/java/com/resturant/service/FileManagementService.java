@@ -5,9 +5,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.UrlResource;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -15,7 +17,9 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 @Slf4j
@@ -34,16 +38,55 @@ public class FileManagementService {
     }
 
     public String saveFile(MultipartFile file) throws IOException {
-        String originalFilename = file.getOriginalFilename();
-        String extension = originalFilename != null ?
-                originalFilename.substring(originalFilename.lastIndexOf(".")) : "";
-        String filename = UUID.randomUUID() + extension;
+//        String originalFilename = file.getOriginalFilename();
+//        String extension = originalFilename != null ?
+//                originalFilename.substring(originalFilename.lastIndexOf(".")) : "";
+//        String filename = UUID.randomUUID() + extension;
+//
+//        Path destinationFile = this.rootLocation.resolve(filename)
+//                .normalize()
+//                .toAbsolutePath();
+//
+//        Files.copy(file.getInputStream(), destinationFile, StandardCopyOption.REPLACE_EXISTING);
+//        return filename;
+        // Validate file is not empty
+        if (file.isEmpty()) {
+            throw new IOException("Failed to store empty file");
+        }
 
+        // Validate filename
+        String originalFilename = StringUtils.cleanPath(Objects.requireNonNull(file.getOriginalFilename()));
+        if (originalFilename.contains("..")) {
+            throw new IOException("Cannot store file with relative path: " + originalFilename);
+        }
+
+        // Validate file extension
+        String extension = originalFilename.substring(originalFilename.lastIndexOf(".")).toLowerCase();
+        if (!Arrays.asList(".jpg", ".jpeg", ".png", ".gif").contains(extension)) {
+            throw new IOException("Invalid image file format");
+        }
+
+        // Generate secure filename
+        String filename = UUID.randomUUID().toString() + extension;
         Path destinationFile = this.rootLocation.resolve(filename)
                 .normalize()
                 .toAbsolutePath();
 
-        Files.copy(file.getInputStream(), destinationFile, StandardCopyOption.REPLACE_EXISTING);
+        // Verify destination directory exists
+        if (!Files.exists(rootLocation)) {
+            Files.createDirectories(rootLocation);
+        }
+
+        // Verify not outside root location
+        if (!destinationFile.getParent().equals(rootLocation.toAbsolutePath())) {
+            throw new IOException("Cannot store file outside target directory");
+        }
+
+        // Save file with overwrite protection
+        try (InputStream inputStream = file.getInputStream()) {
+            Files.copy(inputStream, destinationFile, StandardCopyOption.REPLACE_EXISTING);
+        }
+
         return filename;
     }
 

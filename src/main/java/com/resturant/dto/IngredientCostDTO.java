@@ -20,9 +20,14 @@ public class IngredientCostDTO {
     @NotNull
     private Long id;
     @Schema(
-            description = "Additional cost for this ingredient in this dish",
-            example = "15.00"
+            description = "Additional ingredient in this dish",
+            example = "Enjera"
     )
+    private String name;
     @PositiveOrZero
+    @Schema(
+            description = "Additional cost for this ingredient in this dish",
+            example = "1.00"
+    )
     private BigDecimal extraCost;
 }

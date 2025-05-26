@@ -43,6 +43,7 @@ public class FoodServiceImpl implements FoodService{
         Food food = new Food();
         food.setName(foodRequestDTO.getName());
         food.setPrice(foodRequestDTO.getPrice());
+        food.setCategory(foodRequestDTO.getCategory());
         food.setDescription(foodRequestDTO.getDescription());
         food.setImagePath(foodRequestDTO.getImagePath());
 

@@ -3,6 +3,7 @@ package com.resturant.mapper;
 import com.resturant.dto.FoodDTO;
 import com.resturant.dto.FoodRequestDTO;
 import com.resturant.dto.FoodResponseDTO;
+import com.resturant.dto.IngredientCostDTO;
 import com.resturant.entity.Food;
 import com.resturant.entity.FoodIngredient;
 import org.mapstruct.AfterMapping;
@@ -29,58 +30,43 @@ public interface FoodMapper {
     List<FoodDTO> toDTOList(List<Food> foodList);
     List<Food> toEntityList(List<FoodDTO> foodDTOList);
 
-    // Request mapping (ignore ingredients during initial conversion)
-    @Mapping(target = "foodIngredients", ignore = true)
-    @Mapping(source = "imagePath", target = "imagePath")
-    Food toEntityFromRequest(FoodRequestDTO requestDTO);
-
-
     // Response mapping with explicit ingredient handling
-    @Mapping(target = "ingredientNames", expression = "java(mapIngredientNames(food.getFoodIngredients()))")
+    @Mapping(target = "ingredients", expression = "java(toIngredientCosts(food.getFoodIngredients()))")
+    @Mapping(source = "category", target = "category")
     FoodResponseDTO toResponseDTO(Food food);
 
     // Update mapping
     @Mapping(target = "foodIngredients", ignore = true)
     void updateFromRequest(FoodRequestDTO requestDTO, @MappingTarget Food food);
 
-    // Ingredient name mapping
-    default List<String> mapIngredientNamesFromFood(Food food) {
-        if (food.getFoodIngredients() == null || food.getFoodIngredients().isEmpty()) {
+
+    default List<IngredientCostDTO> toIngredientCosts(Set<FoodIngredient> foodIngredients) {
+        if (foodIngredients == null || foodIngredients.isEmpty()) {
             return Collections.emptyList();
         }
-        return food.getFoodIngredients().stream()
-                .map(fi -> fi.getIngredient().getName())
+        return foodIngredients.stream()
+                .map(this::toIngredientCostDTO)
                 .collect(Collectors.toList());
     }
 
-    // Ingredient ID mapping
-    default List<Long> mapIngredientIdsFromFood(Food food) {
-        if (food.getFoodIngredients() == null || food.getFoodIngredients().isEmpty()) {
-            return Collections.emptyList();
-        }
-        return food.getFoodIngredients().stream()
-                .map(fi -> fi.getIngredient().getId())
-                .collect(Collectors.toList());
+    // Helper to convert single FoodIngredient to IngredientCostDTO
+    default IngredientCostDTO toIngredientCostDTO(FoodIngredient fi) {
+        if (fi == null || fi.getIngredient() == null) return null;
+
+        IngredientCostDTO dto = new IngredientCostDTO();
+        dto.setName(fi.getIngredient().getName());
+        dto.setExtraCost(fi.getExtraCost());
+        return dto;
     }
 
-    // AfterMapping callback for additional processing
+    // AfterMapping to ensure createdAt is populated
     @AfterMapping
     default void enhanceResponseDTO(Food food, @MappingTarget FoodResponseDTO responseDTO) {
-        // Set createdAt if not already set
         if (responseDTO.getCreatedAt() == null) {
             responseDTO.setCreatedAt(LocalDateTime.now());
         }
-
-        // Ensure collections are never null
-        if (responseDTO.getIngredientNames() == null) {
-            responseDTO.setIngredientNames(Collections.emptyList());
+        if (responseDTO.getIngredients() == null) {
+            responseDTO.setIngredients(Collections.emptyList());
         }
-    }
-
-    default List<String> mapIngredientNames(Set<FoodIngredient> foodIngredients) {
-        if (foodIngredients == null) return Collections.emptyList();
-        return foodIngredients.stream()
-                .map(fi -> fi.getIngredient().getName())
-                .collect(Collectors.toList());
     }
 }

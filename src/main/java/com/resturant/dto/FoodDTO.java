@@ -28,6 +28,13 @@ public class FoodDTO {
     )
     private String name;
     @Schema(
+            description = "Catagory of the Ethiopian dish",
+            example = "Veggie",
+            requiredMode = Schema.RequiredMode.REQUIRED,
+            maxLength = 100
+    )
+    private String category;
+    @Schema(
             description = "Price of the food item in Ethiopian Birr",
             example = "250.00",
             requiredMode = Schema.RequiredMode.REQUIRED

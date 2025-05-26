@@ -29,6 +29,13 @@ public class FoodRequestDTO {
     @Size(max = 100, message = "Name must be less than 100 characters")
     private String name;
     @Schema(
+            description = "Catagory of the Ethiopian dish",
+            example = "Veggie",
+            requiredMode = Schema.RequiredMode.REQUIRED,
+            maxLength = 100
+    )
+    private String category;
+    @Schema(
             description = "Path/URL to the food image (automatically set when uploading)",
             example = "/uploads/doro-wot.jpg",
             accessMode = Schema.AccessMode.READ_ONLY

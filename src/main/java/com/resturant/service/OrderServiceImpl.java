@@ -81,9 +81,8 @@ public class OrderServiceImpl implements OrderService {
                     newUser.setEmail(orderDTO.getEmail());
                     return userRepository.save(newUser);
                 });
-
-//        Order order = orderMapper.toEntity(orderDTO);
         Order order = new Order();
+        order.setSpecialInstructions(orderDTO.getSpecialInstructions());
         order.setUser(user);
         order.setStatus(OrderStatus.PENDING);
 
@@ -123,8 +122,14 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public OrderDTO updateOrder(Long orderId, OrderDTO orderDTO) {        Order existingOrder = orderRepository.findByIdWithRelations(orderId)
+    public OrderDTO updateOrder(Long orderId, OrderDTO orderDTO) {
+
+
+        Order existingOrder = orderRepository.findByIdWithRelations(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found with ID: " + orderId));
+
+
+        existingOrder.setSpecialInstructions(orderDTO.getSpecialInstructions());
 
 
         // 3. Process order items
@@ -139,6 +144,7 @@ public class OrderServiceImpl implements OrderService {
         // 6. Save and return
         Order updatedOrder = orderRepository.save(existingOrder);
         return orderMapper.toDTO(updatedOrder);
+
     }
 
     @Override

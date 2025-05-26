@@ -1,5 +1,7 @@
 package com.resturant.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.*;
 
@@ -12,6 +14,7 @@ import java.util.List;
 @Getter
 @AllArgsConstructor
 @NoArgsConstructor
+@JsonInclude(JsonInclude.Include.ALWAYS)
 @Schema(description = "Response payload containing food item details")
 public class FoodResponseDTO {
 
@@ -26,12 +29,21 @@ public class FoodResponseDTO {
             example = "Doro Wot"
     )
     private String name;
+
+    @Schema(
+            description = "Catagory of the Ethiopian dish",
+            example = "Veggie",
+            requiredMode = Schema.RequiredMode.REQUIRED,
+            maxLength = 100
+    )
+    private String category;
     @Schema(
             description = "Price in Ethiopian Birr",
             example = "250.00",
             implementation = BigDecimal.class
     )
     private BigDecimal price;
+
     @Schema(
             description = "Detailed description of the dish",
             example = "Spicy chicken stew with berbere sauce and hard-boiled eggs"
@@ -48,7 +60,9 @@ public class FoodResponseDTO {
             example = "[\"Chicken\", \"Berbere spice\", \"Onions\"]",
             type = "array"
     )
-    private List<String> ingredientNames;
+    private List<IngredientCostDTO> ingredients;
+
+
     @Schema(
             description = "Timestamp when the food item was created",
             example = "2023-07-15T14:30:00",

@@ -40,6 +40,9 @@ public class OrderDTO {
             requiredMode = Schema.RequiredMode.REQUIRED
     )
     private String status;
+    @Schema(description = "Special instructions for order preparation",
+            example = "No onions, extra spicy")
+    private String specialInstructions;
     @Schema(
             description = "Name of the customer placing the order",
             example = "Abebe Kebede",

@@ -18,11 +18,14 @@ public interface OrderMapper {
     @Mapping(source = "user.userName", target = "userName")
     @Mapping(source = "user.email", target = "email")
     @Mapping(target = "deliveryDTO", source = "delivery")
+    @Mapping(target = "specialInstructions", source = "specialInstructions")
     OrderDTO toDTO(Order order);
+
 
     @Mapping(target = "user", ignore = true)
     @Mapping(target = "orderItems", ignore = true)
-    @Mapping(target = "delivery", ignore = true) // Delivery handled separately
+    @Mapping(target = "delivery", ignore = true)
+    @Mapping(target = "specialInstructions", source = "specialInstructions")
     Order toEntity(OrderDTO orderDTO);
 
 }
