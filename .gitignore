@@ -1,0 +1,18 @@
+# Build output
+target/
+bin/
+build/
+
+# IDE files
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Other
+*.log
+*.swp
+.DS_Store
+
+# Uploads (if they shouldn't be in repo)
+uploads/
