@@ -1,5 +1,7 @@
 package com.resturant.dto;
 
+import com.resturant.entity.OrderStatus;
+import com.resturant.entity.PaymentStatus;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
@@ -39,7 +41,8 @@ public class OrderDTO {
             allowableValues = {"NEW", "PROCESSING", "DELIVERED", "CANCELLED"},
             requiredMode = Schema.RequiredMode.REQUIRED
     )
-    private String status;
+    private OrderStatus status;
+    private PaymentStatus paymentStatus;
     @Schema(description = "Special instructions for order preparation",
             example = "No onions, extra spicy")
     private String specialInstructions;
@@ -73,4 +76,7 @@ public class OrderDTO {
             description = "Delivery information for the order"
     )
     private DeliveryDTO deliveryDTO;
+
+
+    private String remainingTime;
 }

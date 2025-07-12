@@ -15,15 +15,18 @@ import java.util.Collections;
 public interface OrderMapper {
 
     OrderMapper INSTANCE = Mappers.getMapper(OrderMapper.class);
+    @Mapping(source = "id", target = "orderId")
     @Mapping(source = "user.userName", target = "userName")
     @Mapping(source = "user.email", target = "email")
     @Mapping(target = "deliveryDTO", source = "delivery")
     @Mapping(target = "specialInstructions", source = "specialInstructions")
+    @Mapping(source = "orderItems", target = "orderItems")
+    @Mapping(source = "status", target = "status")
+    @Mapping(source = "paymentStatus", target = "paymentStatus")
     OrderDTO toDTO(Order order);
 
 
     @Mapping(target = "user", ignore = true)
-    @Mapping(target = "orderItems", ignore = true)
     @Mapping(target = "delivery", ignore = true)
     @Mapping(target = "specialInstructions", source = "specialInstructions")
     Order toEntity(OrderDTO orderDTO);

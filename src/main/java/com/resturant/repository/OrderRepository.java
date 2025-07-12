@@ -3,6 +3,8 @@ package com.resturant.repository;
 
 import com.resturant.entity.Order;
 import com.resturant.entity.OrderItem;
+import com.resturant.entity.OrderStatus;
+import com.resturant.entity.PaymentStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -20,5 +22,15 @@ public interface OrderRepository extends JpaRepository<Order,Long> {
 
     @Query("SELECT o FROM Order o LEFT JOIN FETCH o.orderItems WHERE o.id = :id")
     Optional<Order> findByIdWithItems(@Param("id") Long id);
+
+    List<Order> findByPaymentStatusAndStatus(PaymentStatus paymentStatus, OrderStatus orderStatus);
+
+    List<Order> findByStatus(OrderStatus status);
+
+    List<Order> findByUserEmail(String email);
+
+
+
+
 
 }

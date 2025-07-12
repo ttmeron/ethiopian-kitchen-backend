@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -84,7 +85,12 @@ public class OrderServiceImpl implements OrderService {
         Order order = new Order();
         order.setSpecialInstructions(orderDTO.getSpecialInstructions());
         order.setUser(user);
-        order.setStatus(OrderStatus.PENDING);
+        order.setStatus(OrderStatus.PROCESSING);
+        if (orderDTO.getPaymentStatus() != null) {
+            order.setPaymentStatus(orderDTO.getPaymentStatus());
+        } else {
+            order.setPaymentStatus(PaymentStatus.FAILED);
+        }
 
 
         BigDecimal totalPrice = calculateOrderTotal(orderDTO);
@@ -110,6 +116,15 @@ public class OrderServiceImpl implements OrderService {
 
         return orderMapper.toDTO(order);
     }
+
+    @Override
+    public List<OrderDTO> findByUserEmail(String email) {
+        List<Order> orders = orderRepository.findByUserEmail(email);
+        return orders.stream()
+                .map(orderMapper::toDTO)
+                .collect(Collectors.toList());
+    }
+
 
     @Override
     public List<OrderDTO> getAllOrder() {
@@ -152,6 +167,28 @@ public class OrderServiceImpl implements OrderService {
 
         orderRepository.deleteById(id);
 
+    }
+
+    @Override
+    public OrderDTO markAsReady(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found with id: " + orderId));
+
+        order.setStatus(OrderStatus.READY);
+        order.setUpdatedAt(LocalDateTime.now()); // if you track time
+
+        orderRepository.save(order);
+
+        return orderMapper.toDTO(order);
+
+    }
+
+    @Override
+    public List<OrderDTO> getPaidOrders() {
+        List<Order> orders = orderRepository.findByPaymentStatusAndStatus(PaymentStatus.SUCCESS, OrderStatus.PROCESSING);
+        return orders.stream()
+                .map(orderMapper::toDTO)
+                .collect(Collectors.toList());
     }
 
     // ========== HELPER METHODS ==========

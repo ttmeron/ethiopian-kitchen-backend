@@ -1,17 +1,18 @@
 package com.resturant.entity;
 
 public enum OrderStatus {
-    PENDING,
-    COMPLETED,
     CANCELLED,
-    PROCESSING;
+    DELIVERED,
+    READY,
+    PROCESSING,
+    COMPLETED;
 
     public static OrderStatus fromString(String value) {
-        if (value == null) return PENDING; // Default value
+        if (value == null) return PROCESSING; // Default value
         try {
             return OrderStatus.valueOf(value.toUpperCase());
         } catch (IllegalArgumentException e) {
-            return PENDING; // Fallback to default
+            return PROCESSING; // Fallback to default
         }
     }
 }

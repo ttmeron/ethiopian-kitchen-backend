@@ -2,7 +2,11 @@ package com.resturant.controller;
 
 
 import com.resturant.dto.OrderDTO;
+import com.resturant.entity.Order;
+import com.resturant.entity.OrderStatus;
 import com.resturant.exception.ErrorResponse;
+import com.resturant.mapper.OrderMapper;
+import com.resturant.repository.OrderRepository;
 import com.resturant.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -15,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/orders")
@@ -24,6 +29,12 @@ public class OrderController {
 
     @Autowired
     OrderService orderService;
+
+    @Autowired
+    OrderRepository orderRepository;
+
+    @Autowired
+    OrderMapper orderMapper;
 
     @PostMapping
     @Operation(summary = "Add a new order item")
@@ -53,6 +64,13 @@ public class OrderController {
         return ResponseEntity.ok(orderService.getOrderById(id));
     }
 
+    @GetMapping("/by-email")
+    @Operation(summary = "Get a order  by email")
+    public ResponseEntity<List<OrderDTO>> getOrderByEmail(@RequestParam String email){
+        List<OrderDTO> orders = orderService.findByUserEmail(email);
+        return ResponseEntity.ok(orders);
+    }
+
     @GetMapping
     @Operation(summary = "Get all order items",
             description = "Returns a list of all Ethiopian Kitchen orders")
@@ -73,4 +91,27 @@ public class OrderController {
         orderService.deleteOrder(id);
         return ResponseEntity.noContent().build();
     }
+    @PutMapping("/{orderId}/ready")
+    public ResponseEntity<OrderDTO> markOrderAsReady(@PathVariable Long orderId) {
+        OrderDTO updatedOrder = orderService.markAsReady(orderId);
+        return ResponseEntity.ok(updatedOrder);
+    }
+
+
+    @GetMapping("/status/{status}")
+    public ResponseEntity<List<OrderDTO>> getOrdersByStatus(@PathVariable OrderStatus status) {
+        List<Order> orders = orderRepository.findByStatus(status);
+        List<OrderDTO> orderDTOs = orders.stream()
+                .map(orderMapper::toDTO)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(orderDTOs);
+    }
+
+    @GetMapping("/paid")
+    public List<OrderDTO> getPaidOrders() {
+        return orderService.getPaidOrders();
+    }
+
+
+
 }
