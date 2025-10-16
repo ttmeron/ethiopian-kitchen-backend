@@ -31,7 +31,7 @@ public class OrderItemIngredientDTO {
     @Schema(
             description = "ID of the ingredient being customized",
             example = "5",
-            requiredMode = Schema.RequiredMode.REQUIRED
+            required = true
     )
     @NotNull(message = "Ingredient ID is required")
     private Long ingredientId;

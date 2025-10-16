@@ -2,6 +2,8 @@ package com.resturant.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import javax.persistence.*;
 import java.math.BigDecimal;
@@ -15,7 +17,6 @@ import java.util.List;
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
-
 public class Order {
 
     @Id
@@ -23,9 +24,19 @@ public class Order {
     private Long id;
 
     @ManyToOne
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id", nullable = true)
     private User user;
+    @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
+
+    @Column(name = "tracking_token", unique = true)
+    private String trackingToken;
+    @Column(name = "stripe_payment_intent_id")
+    private String stripePaymentIntentId;
 
 
     private String orderNumber;
@@ -34,13 +45,22 @@ public class Order {
     @Column(name = "special_instructions", length = 500)
     private String specialInstructions;
 
+    @Column(name = "is_guest")
+    private Boolean isGuest = false;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
     private OrderStatus status;
 
+    @Column(name = "guest_email")
+    private String guestEmail;
+
+    @Column(name = "guest_name")
+    private String guestName;
+
     @Enumerated(EnumType.STRING)
-    @Column(name = "payment_status")
-    private PaymentStatus paymentStatus;
+    @Column(name = "payment_status", nullable = false)
+    private PaymentStatus paymentStatus = PaymentStatus.PENDING;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
     private List<OrderItem> orderItems;

@@ -17,13 +17,13 @@ public class FoodIngredientDTO {
     @Schema(
             description = "ID of the food item",
             example = "1",
-            requiredMode = Schema.RequiredMode.REQUIRED
+            required = true
     )
     private Long foodId;
     @Schema(
             description = "ID of the ingredient",
             example = "5",
-            requiredMode = Schema.RequiredMode.REQUIRED
+            required = true
     )
     private Long ingredientId;
 

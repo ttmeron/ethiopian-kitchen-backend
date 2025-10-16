@@ -15,6 +15,7 @@ public interface OrderItemIngredientMapper {
 
     @Mapping(target = "ingredientId", source = "ingredient.id")
     @Mapping(target = "ingredientName", source = "ingredient.name")
+    @Mapping(source = "orderItem.id", target = "orderItemId")
     OrderItemIngredientDTO toDTO(OrderItemIngredient orderItemIngredient);
 
 

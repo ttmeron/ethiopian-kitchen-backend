@@ -19,10 +19,25 @@ public class GlobalExceptionHandler {
 
         String path = ((ServletWebRequest) request).getRequest().getRequestURI();
         ErrorResponse response = new ErrorResponse(
-                "Validation failed",
+                "Validation failed - " + ex.getBindingResult().getAllErrors().get(0).getDefaultMessage(),
                 ex.getBindingResult(),
-                path
+                path,
+                HttpStatus.BAD_REQUEST
         );
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleGeneralExceptions(
+            Exception ex,
+            WebRequest request) {
+
+        String path = ((ServletWebRequest) request).getRequest().getRequestURI();
+        ErrorResponse response = new ErrorResponse(
+                ex.getMessage(),
+                path,
+                HttpStatus.INTERNAL_SERVER_ERROR
+        );
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
 }

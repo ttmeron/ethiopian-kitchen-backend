@@ -29,17 +29,24 @@ public class OrderDTO {
             accessMode = Schema.AccessMode.READ_ONLY
     )
     private Long orderId;
+
+    @Schema(
+            description = "When the order was placed",
+            example = "2024-01-15T10:30:00",
+            accessMode = Schema.AccessMode.READ_ONLY
+    )
+    private String placedTime;
+
     @Schema(
             description = "Total price of the order in Ethiopian Birr",
             example = "750.50",
-            requiredMode = Schema.RequiredMode.REQUIRED
+            required = true
     )
     private BigDecimal totalPrice;
     @Schema(
             description = "Current status of the order",
             example = "PROCESSING",
-            allowableValues = {"NEW", "PROCESSING", "DELIVERED", "CANCELLED"},
-            requiredMode = Schema.RequiredMode.REQUIRED
+            allowableValues = {"NEW", "PROCESSING", "DELIVERED", "CANCELLED"}
     )
     private OrderStatus status;
     private PaymentStatus paymentStatus;
@@ -49,7 +56,7 @@ public class OrderDTO {
     @Schema(
             description = "Name of the customer placing the order",
             example = "Abebe Kebede",
-            requiredMode = Schema.RequiredMode.REQUIRED
+            required = true
     )
     @NotNull
     private String userName;
@@ -65,7 +72,7 @@ public class OrderDTO {
     @ArraySchema(
             arraySchema = @Schema(
                     description = "List of items in the order",
-                    requiredMode = Schema.RequiredMode.REQUIRED
+                    required = true
             ),
             schema = @Schema(implementation = OrderItemDTO.class)
     )
@@ -77,6 +84,10 @@ public class OrderDTO {
     )
     private DeliveryDTO deliveryDTO;
 
+    private boolean isGuest;
+
+
+    private String trackingToken;
 
     private String remainingTime;
 }

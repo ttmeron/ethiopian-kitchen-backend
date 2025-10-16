@@ -33,7 +33,7 @@ public class FoodResponseDTO {
     @Schema(
             description = "Catagory of the Ethiopian dish",
             example = "Veggie",
-            requiredMode = Schema.RequiredMode.REQUIRED,
+            required = true,
             maxLength = 100
     )
     private String category;

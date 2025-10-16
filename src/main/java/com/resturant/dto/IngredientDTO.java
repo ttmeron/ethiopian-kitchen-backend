@@ -28,7 +28,7 @@ public class IngredientDTO {
     @Schema(
             description = "Name of the ingredient",
             example = "Berbere Spice",
-            requiredMode = Schema.RequiredMode.REQUIRED,
+            required = true,
             maxLength = 100
     )
     private String name;

@@ -24,6 +24,7 @@ public class IngredientServiceImpl implements IngredientService {
     public IngredientDTO createIngredient(IngredientDTO ingredientDTO) {
 
         Ingredient ingredient = ingredientMapper.toEntity(ingredientDTO);
+
         Ingredient savedIngredient = ingredientRepository.save(ingredient);
 
         return ingredientMapper.toDTO(savedIngredient);

@@ -1,24 +1,37 @@
 package com.resturant.controller;
 
 
+import com.resturant.dto.GuestOrderDTO;
 import com.resturant.dto.OrderDTO;
+import com.resturant.dto.PaymentRequestDTO;
+import com.resturant.dto.PaymentResponseDTO;
+import com.resturant.dto.response.GuestOrderResponseDTO;
 import com.resturant.entity.Order;
 import com.resturant.entity.OrderStatus;
+import com.resturant.entity.User;
 import com.resturant.exception.ErrorResponse;
 import com.resturant.mapper.OrderMapper;
 import com.resturant.repository.OrderRepository;
+import com.resturant.service.GuestOrderService;
+import com.resturant.service.GuestUserService;
 import com.resturant.service.OrderService;
+import com.stripe.model.PaymentIntent;
+import com.stripe.param.PaymentIntentCreateParams;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestController
@@ -34,28 +47,59 @@ public class OrderController {
     OrderRepository orderRepository;
 
     @Autowired
+    GuestUserService guestUserService;
+
+    @Autowired
     OrderMapper orderMapper;
+    @Autowired
+    GuestOrderService guestOrderService;
 
     @PostMapping
     @Operation(summary = "Add a new order item")
     public ResponseEntity<?> placeOrder(@Valid @RequestBody OrderDTO orderDTO,  BindingResult bindingResult, HttpServletRequest request){
 
-        // Manual validation for foodId
-        for (int i = 0; i < orderDTO.getOrderItems().size(); i++) {
-            if (orderDTO.getOrderItems().get(i).getFoodId() == null) {
-                bindingResult.rejectValue("orderItems["+i+"].foodId",
-                        "NotNull",
-                        "Food ID is required");
-            }
+        if (bindingResult.hasErrors()) {
+            return ResponseEntity.badRequest().body(bindingResult.getAllErrors());
         }
+        if (orderDTO.isGuest()) {
+            throw new IllegalArgumentException("Use /orders/guest for guest users");
+        }
+        OrderDTO order = orderService.placeOrder(orderDTO);
+        return ResponseEntity.ok(order);
+    }
+
+
+
+    @PostMapping("/guest")
+    @Operation(summary = "Place order as guest")
+    public ResponseEntity<?> placeGuestOrder(
+            @Valid @RequestBody GuestOrderDTO guestOrderDTO,
+            BindingResult bindingResult,
+            HttpServletRequest request) {
 
         if (bindingResult.hasErrors()) {
-            // Return customized error response
-            return ResponseEntity.badRequest()
-                    .body(new ErrorResponse("Validation failed", bindingResult,request.getRequestURI()));
+            return ResponseEntity.badRequest().body(bindingResult.getAllErrors());
         }
 
-        return ResponseEntity.ok(orderService.placeOrder(orderDTO));
+        OrderDTO order = guestOrderService.createGuestOrder(guestOrderDTO);
+        return ResponseEntity.ok(order);
+
+    }
+
+    @PutMapping("/{id}/pay")
+    @Operation(summary = "Pay for an order")
+    public ResponseEntity<OrderDTO> payForOrder(
+            @PathVariable Long id,
+            @Valid @RequestBody PaymentRequestDTO paymentRequest) {
+        OrderDTO dto = orderService.payForOrder(id, paymentRequest);
+        return ResponseEntity.ok(dto);
+    }
+
+
+    @GetMapping("/track/{trackingToken}")
+    public ResponseEntity<OrderDTO> getOrderByTrackingToken(@PathVariable String trackingToken) {
+        OrderDTO order = orderService.getOrderByTrackingToken(trackingToken);
+        return ResponseEntity.ok(order);
     }
 
     @GetMapping("/{id}")
@@ -111,6 +155,32 @@ public class OrderController {
     public List<OrderDTO> getPaidOrders() {
         return orderService.getPaidOrders();
     }
+
+    @PostMapping("/initiate")
+    public PaymentResponseDTO initiatePayment(@RequestBody PaymentRequestDTO paymentRequestDTO) {
+        try {
+            Map<String, Object> params = new HashMap<>();
+            params.put("amount", (long) (paymentRequestDTO.getAmount() * 100)); // Stripe wants cents
+            params.put("currency", "usd");
+
+            Map<String, Object> autoPaymentMethods = new HashMap<>();
+            autoPaymentMethods.put("enabled", true);
+            params.put("automatic_payment_methods", autoPaymentMethods);
+
+            PaymentIntent paymentIntent = PaymentIntent.create(params);
+
+            return new PaymentResponseDTO(
+                    paymentIntent.getClientSecret(),
+                    paymentIntent.getId(),
+                    paymentIntent.getStatus()
+            );
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to create payment intent", e);
+        }
+    }
+
+
+
 
 
 

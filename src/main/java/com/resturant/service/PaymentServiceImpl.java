@@ -1,5 +1,7 @@
 package com.resturant.service;
 
+import com.resturant.dto.GuestOrderDTO;
+import com.resturant.dto.OrderDTO;
 import com.resturant.dto.PaymentRequestDTO;
 import com.resturant.dto.PaymentResponseDTO;
 import com.resturant.entity.Order;
@@ -19,6 +21,7 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -31,6 +34,10 @@ public class PaymentServiceImpl implements PaymentService {
     private final OrderRepository orderRepository;
     private final PaymentMapper paymentMapper;
     private final PaymentRepository paymentRepository;
+    @Autowired
+    private final OrderService orderService;
+    @Autowired
+    private final GuestOrderService guestOrderService;
 
 
     @Value("${stripe.secret-key}")
@@ -45,6 +52,11 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     public PaymentResponseDTO initiatePayment(PaymentRequestDTO requestDTO) {
+
+        if (requestDTO.getOrderId() == null) {
+            throw new IllegalArgumentException("Order ID cannot be null in payment request");
+        }
+
 
         Order order = orderRepository.findById(requestDTO.getOrderId())
                 .orElseThrow(() -> new RuntimeException("Order not found"));
@@ -65,7 +77,7 @@ public class PaymentServiceImpl implements PaymentService {
             payment.setOrder(order);
 
 
-            payment.setStatus(PaymentStatus.PENDING.name());
+            payment.setStatus(PaymentStatus.PENDING);
 
 
             paymentRepository.save(payment);
@@ -82,9 +94,98 @@ public class PaymentServiceImpl implements PaymentService {
         Payment payment = paymentRepository.findByPaymentId(paymentIntentId)
                 .orElseThrow(() -> new RuntimeException("Payment not found"));
 
-        payment.setStatus(status.name());
+        payment.setStatus(status);
         paymentRepository.save(payment);
     }
+
+    @Override
+    public PaymentResponseDTO createPaymentIntent(PaymentRequestDTO request) throws StripeException {
+        Map<String, Object> params = new HashMap<>();
+        params.put("amount", (long) (request.getAmount() * 100)); // convert to cents
+        params.put("currency", "usd");
+
+        Map<String, Object> autoPaymentMethods = new HashMap<>();
+        autoPaymentMethods.put("enabled", true);
+        params.put("automatic_payment_methods", autoPaymentMethods);
+
+        PaymentIntent paymentIntent = PaymentIntent.create(params);
+
+        return new PaymentResponseDTO(
+                paymentIntent.getClientSecret(),
+                paymentIntent.getId(),
+                paymentIntent.getStatus()
+        );
+    }
+
+    @Override
+    public PaymentResponseDTO confirmPayment(String paymentIntentId) {
+        return null;
+    }
+//
+//    @Override
+//    public PaymentResponseDTO confirmGuestPayment(String paymentIntentId, GuestOrderDTO guestOrderDTO) {
+//        try {
+//            // 1. Retrieve PaymentIntent from Stripe
+//            PaymentIntent intent = PaymentIntent.retrieve(paymentIntentId);
+//            PaymentIntent confirmedIntent = intent.confirm();
+//
+//            // 2. Find local Payment
+//            Payment payment = paymentRepository.findByPaymentId(paymentIntentId)
+//                    .orElseThrow(() -> new RuntimeException("Payment not found"));
+//
+//            if ("succeeded".equals(confirmedIntent.getStatus())) {
+//                payment.setStatus(PaymentStatus.SUCCESS);
+//                paymentRepository.save(payment);
+//
+//                // 3. Create guest order AFTER successful payment
+//                // If you don’t have a guest `User` entity, you can pass null here
+//                guestOrderService.createGuestOrderAfterPayment(
+//                        guestOrderDTO,
+//                        null,  // optional guest user entity if you want
+//                        confirmedIntent.getId()
+//                );
+//            } else {
+//                payment.setStatus(PaymentStatus.FAILED);
+//                paymentRepository.save(payment);
+//            }
+//
+//            // 4. Return response
+//            return new PaymentResponseDTO(
+//                    confirmedIntent.getClientSecret(),
+//                    confirmedIntent.getId(),
+//                    confirmedIntent.getStatus()
+//            );
+//        } catch (Exception e) {
+//            throw new RuntimeException("Failed to confirm guest payment: " + e.getMessage(), e);
+//        }
+//    }
+
+    @Override
+    public void confirmGuestPayment(String paymentIntentId, GuestOrderDTO guestOrderDTO) {
+        // 1. Find the payment (should exist now)
+        Payment payment = paymentRepository.findByPaymentId(paymentIntentId)
+                .orElseThrow(() -> new RuntimeException("Payment not found for intentId: " + paymentIntentId));
+
+        // 2. Update payment status to SUCCESS
+        payment.setStatus(PaymentStatus.SUCCESS);
+        paymentRepository.save(payment);
+
+        // 3. Create guest order and link it to payment
+        if (payment.getOrder() == null) {
+            OrderDTO orderDTO = orderService.createGuestOrderAfterPayment(guestOrderDTO, paymentIntentId);
+
+            // The order should now be linked to payment via createGuestOrderAfterPayment
+            System.out.println("Guest order created with ID: " + orderDTO.getOrderId());
+        } else {
+            // Update existing order status
+            Order order = payment.getOrder();
+            order.setStatus(OrderStatus.CONFIRMED);
+            orderRepository.save(order);
+        }
+    }
+
+
+
 
 
     @Override
@@ -92,7 +193,7 @@ public class PaymentServiceImpl implements PaymentService {
         Payment payment = paymentRepository.findByPaymentId(paymentIntentId)
                 .orElseThrow(() -> new RuntimeException("Payment not found"));
 
-        payment.setStatus("SUCCESS");
+        payment.setStatus(PaymentStatus.SUCCESS);
         paymentRepository.save(payment);
     }
 

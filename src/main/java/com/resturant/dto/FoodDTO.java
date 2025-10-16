@@ -24,20 +24,20 @@ public class FoodDTO {
     @Schema(
             description = "Name of the food/dish",
             example = "Doro Wot",
-            requiredMode = Schema.RequiredMode.REQUIRED
+            required = true
     )
     private String name;
     @Schema(
             description = "Catagory of the Ethiopian dish",
             example = "Veggie",
-            requiredMode = Schema.RequiredMode.REQUIRED,
+            required = true,
             maxLength = 100
     )
     private String category;
     @Schema(
             description = "Price of the food item in Ethiopian Birr",
             example = "250.00",
-            requiredMode = Schema.RequiredMode.REQUIRED
+            required = true
     )
     private BigDecimal price;
     @Schema(

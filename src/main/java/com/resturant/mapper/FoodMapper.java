@@ -54,6 +54,7 @@ public interface FoodMapper {
         if (fi == null || fi.getIngredient() == null) return null;
 
         IngredientCostDTO dto = new IngredientCostDTO();
+        dto.setId(fi.getIngredient().getId());
         dto.setName(fi.getIngredient().getName());
         dto.setExtraCost(fi.getExtraCost());
         return dto;

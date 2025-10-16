@@ -25,7 +25,7 @@ public class IngredientController {
     @Autowired
     IngredientService ingredientService;
 
-    @PostMapping
+    @PostMapping("/admin")
     @Operation(
             summary = "Create a new ingredient",
             description = "Add a new ingredient to the system"
@@ -93,7 +93,7 @@ public class IngredientController {
         return ResponseEntity.ok(ingredientService.getAllIngredient());
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/admin/{id}")
     @Operation(
             summary = "Update an ingredient",
             description = "Modify an existing ingredient's details"
@@ -131,7 +131,7 @@ public class IngredientController {
         return ResponseEntity.ok(ingredientService.updateIngredient(id,ingredientDTO));
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/admin/{id}")
     @Operation(
             summary = "Delete an ingredient",
             description = "Remove an ingredient from the system"

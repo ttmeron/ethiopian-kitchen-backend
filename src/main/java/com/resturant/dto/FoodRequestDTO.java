@@ -22,7 +22,7 @@ public class FoodRequestDTO {
     @Schema(
             description = "Name of the Ethiopian dish",
             example = "Doro Wot",
-            requiredMode = Schema.RequiredMode.REQUIRED,
+            required = true,
             maxLength = 100
     )
     @NotBlank(message = "Name is required")
@@ -31,7 +31,7 @@ public class FoodRequestDTO {
     @Schema(
             description = "Catagory of the Ethiopian dish",
             example = "Veggie",
-            requiredMode = Schema.RequiredMode.REQUIRED,
+            required = true,
             maxLength = 100
     )
     private String category;
@@ -47,7 +47,7 @@ public class FoodRequestDTO {
     @Schema(
             description = "Price of the dish in Ethiopian Birr",
             example = "250.00",
-            requiredMode = Schema.RequiredMode.REQUIRED,
+            required = true,
             minimum = "0.01"
     )
     @NotNull(message = "Price is required")

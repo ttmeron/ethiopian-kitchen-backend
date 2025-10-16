@@ -5,6 +5,8 @@ public enum OrderStatus {
     DELIVERED,
     READY,
     PROCESSING,
+    PENDING,
+    CONFIRMED,
     COMPLETED;
 
     public static OrderStatus fromString(String value) {

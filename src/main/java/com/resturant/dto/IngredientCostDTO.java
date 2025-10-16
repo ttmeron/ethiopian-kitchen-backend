@@ -15,7 +15,7 @@ public class IngredientCostDTO {
     @Schema(
             description = "ID of the ingredient",
             example = "1",
-            requiredMode = Schema.RequiredMode.REQUIRED
+            required = true
     )
     @NotNull
     private Long id;

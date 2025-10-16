@@ -79,6 +79,19 @@ public class FoodServiceImpl implements FoodService{
     public FoodResponseDTO getFoodById(Long id) {
         Food food = foodRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Food not found with id: " + id));
+        // ADD THIS DEBUG LOGGING
+        System.out.println("=== FOOD API DEBUG ===");
+        System.out.println("Food: " + food.getName());
+        System.out.println("Food ingredients count: " + food.getFoodIngredients().size());
+
+        food.getFoodIngredients().forEach(foodIngredient -> {
+            Ingredient ingredient = foodIngredient.getIngredient();
+            System.out.println("Ingredient: " + ingredient.getName());
+            System.out.println("  Ingredient base extraCost: " + ingredient.getExtraCost());
+            System.out.println("  FoodIngredient extraCost: " + foodIngredient.getExtraCost());
+        });
+        System.out.println("=== END DEBUG ===");
+
         return foodMapper.toResponseDTO(food);
     }
 

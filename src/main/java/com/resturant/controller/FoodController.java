@@ -20,6 +20,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -33,6 +34,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/foods")
 @Tag(name = "Food Management", description = "Operations related to Ethiopian food items")
+
 public class FoodController {
 
     @Autowired
@@ -44,7 +46,8 @@ public class FoodController {
     @Value("${file.upload-dir}")
     private String uploadDir;
 
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/admin",consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+//    @PreAuthorize("hasRole('ADMIN')")
     @Operation(
             summary = "Create a new food item with optional image",
             description = "Upload food details along with an optional image file"
@@ -66,7 +69,6 @@ public class FoodController {
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     public ResponseEntity<?> createFood(
-//            @RequestPart("foodRequest") @Valid  FoodRequestDTO foodRequestDTO,
             @Parameter(
                     description = "Food data in JSON format",
                     required = true,
@@ -121,6 +123,7 @@ public class FoodController {
 
 
     @GetMapping("/{id}")
+//    @PreAuthorize("permitAll()")
     @Operation(summary = "Get food item by ID")
     @ApiResponse(
             responseCode = "200",
@@ -140,6 +143,7 @@ public class FoodController {
     }
 
     @GetMapping
+//    @PreAuthorize("permitAll()")
     @Operation(summary = "Get all food items")
     @ApiResponse(
             responseCode = "200",
@@ -150,7 +154,8 @@ public class FoodController {
         return ResponseEntity.ok(foodService.getAllFood());
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/admin/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Update a food item")
     @ApiResponses({
             @ApiResponse(
@@ -175,7 +180,8 @@ public class FoodController {
        return ResponseEntity.ok(foodService.updateFood(id,foodRequestDTO));
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/admin/{id}")
+//    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Delete a food item")
     @ApiResponse(
             responseCode = "204",

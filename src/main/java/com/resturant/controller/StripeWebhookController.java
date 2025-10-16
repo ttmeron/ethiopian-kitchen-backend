@@ -128,7 +128,7 @@ private void handlePaymentIntentSucceeded(Event event) {
             throw new RuntimeException("Payment not found yet.");
         }
 
-        payment.setStatus("SUCCESS");
+        payment.setStatus(PaymentStatus.SUCCESS);
         paymentRepository.save(payment);
 
         Long orderId = Long.valueOf(orderIdStr);

@@ -18,7 +18,7 @@ public class Payment {
 
     private String paymentId;
     private String paymentMethod;
-    private String status;
+    private PaymentStatus status;
     private Double amount;
     private LocalDateTime paymentDate;
 

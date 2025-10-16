@@ -31,7 +31,7 @@ public class OrderItemDTO {
     @Schema(
             description = "ID of the food item",
             example = "5",
-            requiredMode = Schema.RequiredMode.REQUIRED
+            required = true
     )
     @NotNull(message = "Food ID is required")
     @JsonProperty("foodId")
@@ -41,7 +41,7 @@ public class OrderItemDTO {
     @Schema(
             description = "Quantity ordered",
             example = "2",
-            requiredMode = Schema.RequiredMode.REQUIRED
+            required = true
     )
     @NotNull
     @Positive
@@ -50,13 +50,13 @@ public class OrderItemDTO {
     @Schema(
             description = "Name of the Ethiopian food item",
             example = "Doro Wot",
-            requiredMode = Schema.RequiredMode.REQUIRED
+            required = true
     )
     private String foodName;
     @Schema(
             description = "Price per unit in Ethiopian Birr",
             example = "250.00",
-            requiredMode = Schema.RequiredMode.REQUIRED
+            required = true
     )
     private BigDecimal price;
     @ArraySchema(

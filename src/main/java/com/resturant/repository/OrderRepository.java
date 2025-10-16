@@ -28,6 +28,8 @@ public interface OrderRepository extends JpaRepository<Order,Long> {
     List<Order> findByStatus(OrderStatus status);
 
     List<Order> findByUserEmail(String email);
+    Optional<Order> findByTrackingToken(String trackingToken);
+
 
 
 
