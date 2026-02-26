@@ -1,8 +1,6 @@
 package com.resturant.mapper;
 
-import com.resturant.dto.FoodDTO;
 import com.resturant.dto.UserDTO;
-import com.resturant.entity.Food;
 import com.resturant.entity.User;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;

@@ -1,7 +1,6 @@
 package com.resturant.dto.response;
 
 import com.resturant.dto.DeliveryDTO;
-import com.resturant.dto.OrderDTO;
 import com.resturant.dto.OrderItemDTO;
 import lombok.AllArgsConstructor;
 import lombok.Getter;

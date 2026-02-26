@@ -48,21 +48,16 @@ public class Food {
     public void clearIngredients() {
         foodIngredients.clear();
     }
-    // Helper method to safely manage ingredients
     public void updateIngredients(Set<FoodIngredient> newIngredients) {
-        // Clear existing ingredients safely
+
         this.foodIngredients.clear();
 
 
-        // Add new ingredients while maintaining bidirectional relationship
         newIngredients.forEach(fi -> {
             fi.setFood(this);
             this.foodIngredients.add(fi);
         });
     }
-
-
-
 
     public void removeIngredient(Ingredient ingredient) {
         this.foodIngredients.removeIf(foodIngredient -> foodIngredient.getIngredient().equals(ingredient));

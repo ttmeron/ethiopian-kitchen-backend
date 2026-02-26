@@ -38,51 +38,33 @@ public class FileManagementService {
     }
 
     public String saveFile(MultipartFile file) throws IOException {
-//        String originalFilename = file.getOriginalFilename();
-//        String extension = originalFilename != null ?
-//                originalFilename.substring(originalFilename.lastIndexOf(".")) : "";
-//        String filename = UUID.randomUUID() + extension;
-//
-//        Path destinationFile = this.rootLocation.resolve(filename)
-//                .normalize()
-//                .toAbsolutePath();
-//
-//        Files.copy(file.getInputStream(), destinationFile, StandardCopyOption.REPLACE_EXISTING);
-//        return filename;
-        // Validate file is not empty
         if (file.isEmpty()) {
             throw new IOException("Failed to store empty file");
         }
 
-        // Validate filename
         String originalFilename = StringUtils.cleanPath(Objects.requireNonNull(file.getOriginalFilename()));
         if (originalFilename.contains("..")) {
             throw new IOException("Cannot store file with relative path: " + originalFilename);
         }
 
-        // Validate file extension
         String extension = originalFilename.substring(originalFilename.lastIndexOf(".")).toLowerCase();
         if (!Arrays.asList(".jpg", ".jpeg", ".png", ".gif").contains(extension)) {
             throw new IOException("Invalid image file format");
         }
 
-        // Generate secure filename
         String filename = UUID.randomUUID().toString() + extension;
         Path destinationFile = this.rootLocation.resolve(filename)
                 .normalize()
                 .toAbsolutePath();
 
-        // Verify destination directory exists
         if (!Files.exists(rootLocation)) {
             Files.createDirectories(rootLocation);
         }
 
-        // Verify not outside root location
         if (!destinationFile.getParent().equals(rootLocation.toAbsolutePath())) {
             throw new IOException("Cannot store file outside target directory");
         }
 
-        // Save file with overwrite protection
         try (InputStream inputStream = file.getInputStream()) {
             Files.copy(inputStream, destinationFile, StandardCopyOption.REPLACE_EXISTING);
         }
@@ -125,7 +107,6 @@ public class FileManagementService {
     public boolean deleteFile(String filename) throws IOException {
         Path filePath = rootLocation.resolve(filename).normalize();
 
-        // Additional security check to prevent directory traversal
         if (!filePath.startsWith(rootLocation)) {
             throw new SecurityException("Cannot delete files outside upload directory");
         }
@@ -139,7 +120,6 @@ public class FileManagementService {
 
         Path filePath = rootLocation.resolve(filename).normalize();
 
-        // Security check
         if (!filePath.startsWith(rootLocation)) {
             log.error("Path traversal attempt detected: {}", filename);
             throw new SecurityException("Cannot access files outside upload directory");

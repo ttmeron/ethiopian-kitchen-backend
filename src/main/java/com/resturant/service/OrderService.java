@@ -4,9 +4,9 @@ import com.resturant.dto.GuestOrderDTO;
 import com.resturant.dto.OrderDTO;
 import com.resturant.dto.PaymentRequestDTO;
 import com.resturant.dto.PaymentResponseDTO;
+import com.resturant.entity.OrderStatus;
 import com.stripe.exception.StripeException;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 public interface OrderService {
@@ -23,8 +23,14 @@ public interface OrderService {
     OrderDTO getOrderByTrackingToken(String trackingToken);
     OrderDTO placeGuestOrder(GuestOrderDTO guestOrderDTO);
     OrderDTO payForOrder(Long orderId, PaymentRequestDTO paymentRequestDTO);
+
+    void confirmGuestPayment(String paymentIntentId, GuestOrderDTO guestOrderDTO);
     PaymentResponseDTO createGuestPaymentIntent(GuestOrderDTO guestOrderDTO) throws StripeException;
     public OrderDTO createGuestOrderAfterPayment(GuestOrderDTO guestOrderDTO, String paymentIntentId);
+    List<OrderDTO> getOrdersByStatus(OrderStatus status);
+
+    List<OrderDTO> getOrdersByUserEmailAndStatus(String email, OrderStatus status);
+
 
 
 

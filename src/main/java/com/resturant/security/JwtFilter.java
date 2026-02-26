@@ -1,12 +1,7 @@
 package com.resturant.security;
 import com.resturant.service.CustomUserDetailsService;
-import org.springframework.security.core.userdetails.User;
-import com.resturant.repository.UserRepository;
-
-import java.util.Arrays;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
@@ -17,8 +12,6 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.Collections;
-import java.util.List;
 
 @Component
 public class JwtFilter extends OncePerRequestFilter {
@@ -39,14 +32,15 @@ public class JwtFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         System.out.println("Request URI: " + path);
 
-        // Skip JWT check for auth and public paths
         if (path.startsWith("/auth/") ||
                 path.startsWith("/api/user/register") ||
                 path.startsWith("/api/user/check-email") ||
                 path.startsWith("/api/user/guest") ||
                 path.startsWith("/api/payments") ||
-                path.startsWith("/api/images") ||
-                path.startsWith("/api/orders")) {
+                path.startsWith("/api/images")||
+                path.startsWith("/api/orders/status/**")
+        )
+        {
             filterChain.doFilter(request, response);
             return;
         }
@@ -66,6 +60,7 @@ public class JwtFilter extends OncePerRequestFilter {
                     SecurityContextHolder.getContext().setAuthentication(authToken);
 
                     System.out.println("Authenticated user: " + email + " with roles: " + userDetails.getAuthorities());
+
                 } else {
                     System.err.println("JWT token validation failed");
                 }
@@ -74,7 +69,6 @@ public class JwtFilter extends OncePerRequestFilter {
             }
         }
 
-        // Always continue filter chain
         filterChain.doFilter(request, response);
     }
 

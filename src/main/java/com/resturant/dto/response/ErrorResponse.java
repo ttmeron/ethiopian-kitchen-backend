@@ -7,7 +7,6 @@ import org.springframework.http.HttpStatus;
 import java.time.Instant;
 
 @Getter
-//@AllArgsConstructor
 @Schema(description = "Standardized error response format")
 public class ErrorResponse {
 
@@ -27,8 +26,6 @@ public class ErrorResponse {
     private Instant timestamp;
 
 
-
-    // Constructor
     public ErrorResponse(HttpStatus status, String code, String message, String filename) {
         this.status = status.value();
         this.code = code;

@@ -67,12 +67,10 @@ public class OrderItemIngredientServiceImpl implements OrderItemIngredientServic
     public OrderItemIngredient toEntity(OrderItemIngredientDTO dto) {
         OrderItemIngredient orderItemIngredient = new OrderItemIngredient();
 
-        // Set Ingredient (fetch by ID)
         Ingredient ingredient = ingredientRepository.findById(dto.getIngredientId())
                 .orElseThrow(() -> new RuntimeException("Ingredient not found"));
         orderItemIngredient.setIngredient(ingredient);
 
-        // Set Extra Cost and Quantity
         orderItemIngredient.setExtraCost(dto.getExtraCost());
         orderItemIngredient.setQuantity(dto.getQuantity());
 

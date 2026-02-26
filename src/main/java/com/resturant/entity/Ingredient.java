@@ -54,7 +54,6 @@ public class Ingredient {
     public Ingredient(Long id) {
         this.id = id;
     }
-    // equals() and hashCode()
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

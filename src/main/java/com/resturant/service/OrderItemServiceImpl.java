@@ -52,18 +52,15 @@ public class OrderItemServiceImpl implements OrderItemService{
             throw new IllegalArgumentException("OrderItemDTO cannot be null");
         }
 
-        // 1. Fetch food
         Food food = foodRepository.findByName(orderItemDTO.getFoodName())
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Food not found with name: " + orderItemDTO.getFoodName()));
 
-        // 2. Create and configure OrderItem
         OrderItem orderItem = new OrderItem();
         orderItem.setFood(food);
         orderItem.setOrder(order);
         orderItem.setQuantity(orderItemDTO.getQuantity());
 
-        // 4. Process ingredients
         List<OrderItemIngredient> ingredients = new ArrayList<>();
         if (orderItemDTO.getCustomIngredients() != null) {
             for (OrderItemIngredientDTO ingredientDTO : orderItemDTO.getCustomIngredients()) {
@@ -75,26 +72,22 @@ public class OrderItemServiceImpl implements OrderItemService{
                 orderItemIngredient.setIngredient(ingredient);
                 orderItemIngredient.setQuantity(ingredientDTO.getQuantity());
                 orderItemIngredient.setExtraCost(ingredient.getExtraCost());
-                orderItemIngredient.setOrderItem(orderItem); // Critical bidirectional link
+                orderItemIngredient.setOrderItem(orderItem);
 
                 ingredients.add(orderItemIngredient);
             }
         }
 
-        // 5. Set the complete list at once to maintain consistency
         orderItem.setOrderItemIngredients(ingredients);
 
-        // 6. Calculate price
         BigDecimal basePrice = food.getPrice().multiply(BigDecimal.valueOf(orderItem.getQuantity()));
         BigDecimal extraCost = ingredients.stream()
                 .map(oi -> oi.getExtraCost().multiply(BigDecimal.valueOf(oi.getQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         orderItem.setPrice(basePrice.add(extraCost));
 
-        // 7. Save (cascade will persist ingredients)
         OrderItem savedOrderItem = orderItemRepository.save(orderItem);
 
-        // 8. Return DTO with all data
         OrderItemDTO resultDTO = orderItemMapper.toDTO(savedOrderItem);
         resultDTO.setCustomIngredients(orderItemDTO.getCustomIngredients());
         return resultDTO;

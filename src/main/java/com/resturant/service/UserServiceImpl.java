@@ -61,7 +61,7 @@ public class UserServiceImpl implements UserService{
         userDTO.setUserName(registrationDTO.getUserName());
         userDTO.setEmail(registrationDTO.getEmail());
         userDTO.setPassword(passwordEncoder.encode(registrationDTO.getPassword()));
-        userDTO.setRole("USER"); // Default role
+        userDTO.setRole("USER");
 
         return this.createUser(userDTO);
     }

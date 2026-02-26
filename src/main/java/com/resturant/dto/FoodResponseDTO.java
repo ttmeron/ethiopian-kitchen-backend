@@ -1,6 +1,5 @@
 package com.resturant.dto;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.*;
@@ -70,7 +69,6 @@ public class FoodResponseDTO {
             accessMode = Schema.AccessMode.READ_ONLY
     )
     private LocalDateTime createdAt;
-//    private List<Long> ingredientIds;
 
 
 }

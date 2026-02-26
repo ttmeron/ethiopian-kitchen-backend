@@ -2,8 +2,6 @@ package com.resturant.service;
 
 import com.resturant.dto.UserDTO;
 import com.resturant.dto.UserRegistrationDTO;
-import com.resturant.repository.OrderRepository;
-import org.springframework.stereotype.Service;
 
 import java.util.List;
 

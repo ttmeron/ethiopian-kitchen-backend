@@ -1,7 +1,7 @@
 package com.resturant.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.resturant.dto.FoodDTO;
 import com.resturant.dto.FoodRequestDTO;
 import com.resturant.dto.FoodResponseDTO;
 import com.resturant.exception.ErrorResponse;
@@ -23,9 +23,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-
-import javax.validation.Valid;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
@@ -47,7 +44,6 @@ public class FoodController {
     private String uploadDir;
 
     @PostMapping(value = "/admin",consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-//    @PreAuthorize("hasRole('ADMIN')")
     @Operation(
             summary = "Create a new food item with optional image",
             description = "Upload food details along with an optional image file"
@@ -123,7 +119,6 @@ public class FoodController {
 
 
     @GetMapping("/{id}")
-//    @PreAuthorize("permitAll()")
     @Operation(summary = "Get food item by ID")
     @ApiResponse(
             responseCode = "200",
@@ -143,7 +138,6 @@ public class FoodController {
     }
 
     @GetMapping
-//    @PreAuthorize("permitAll()")
     @Operation(summary = "Get all food items")
     @ApiResponse(
             responseCode = "200",
@@ -154,34 +148,60 @@ public class FoodController {
         return ResponseEntity.ok(foodService.getAllFood());
     }
 
-    @PutMapping("/admin/{id}")
+    @PutMapping(value = "/admin/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Update a food item")
-    @ApiResponses({
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "Food updated successfully",
-                    content = @Content(schema = @Schema(implementation = FoodResponseDTO.class))
-            ),
-            @ApiResponse(
-                    responseCode = "400",
-                    description = "Invalid input",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Food item not found",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    })
-    public ResponseEntity<FoodResponseDTO> updateFood(
-            @Parameter(description = "ID of the food to update", example = "1")
+    public ResponseEntity<?> updateFood(
             @PathVariable Long id,
-            @Valid @RequestBody FoodRequestDTO foodRequestDTO){
-       return ResponseEntity.ok(foodService.updateFood(id,foodRequestDTO));
-    }
+            @RequestPart("foodRequest") String rawJson,
+            @RequestPart(value = "imageFile", required = false) MultipartFile imageFile) {
 
+        try {
+
+            // Check if rawJson is provided (it should be required)
+            if (rawJson == null || rawJson.trim().isEmpty()) {
+                Map<String, String> errorResponse = new HashMap<>();
+                errorResponse.put("error", "foodRequest is required");
+                return ResponseEntity.badRequest().body(errorResponse);
+            }
+
+            ObjectMapper mapper = new ObjectMapper();
+            FoodRequestDTO foodRequestDTO = mapper.readValue(rawJson, FoodRequestDTO.class);
+
+            // Handle image if provided
+            if (imageFile != null && !imageFile.isEmpty()) {
+
+                if (!imageFile.getContentType().startsWith("image/")) {
+                    Map<String, String> errorMap = new HashMap<>();
+                    errorMap.put("error", "Only image files are allowed");
+                    return ResponseEntity.badRequest().body(errorMap);
+                }
+
+                String imagePath = fileManagementService.saveFile(imageFile);
+                foodRequestDTO.setImagePath(imagePath);
+            }
+
+            FoodResponseDTO response = foodService.updateFood(id, foodRequestDTO);
+            return ResponseEntity.ok(response);
+
+        } catch (JsonProcessingException e) {
+            System.err.println("JSON parsing error: " + e.getMessage());
+
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Invalid JSON format");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(errorResponse);
+
+        } catch (Exception e) {
+            System.err.println("Update error: " + e.getMessage());
+            e.printStackTrace();
+
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Food update failed");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
     @DeleteMapping("/admin/{id}")
-//    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Delete a food item")
     @ApiResponse(
             responseCode = "204",

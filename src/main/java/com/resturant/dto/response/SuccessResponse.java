@@ -23,7 +23,6 @@ public class SuccessResponse {
     @Schema(description = "Timestamp of the response", example = "2023-07-20T12:00:00Z")
     private Instant timestamp;
 
-    // Constructor
     public SuccessResponse(String code, String message, String filename) {
         this.code = code;
         this.message = message;

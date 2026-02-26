@@ -1,3 +1,12 @@
+# Sensitive configuration files
+application.properties
+application-dev.properties
+application-prod.properties
+*.properties
+
+# Keep template files 
+!application-template.properties
+
 # Build output
 target/
 bin/
@@ -13,7 +22,10 @@ build/
 *.log
 *.swp
 .DS_Store
+.zshrc
 
 # Uploads (if they shouldn't be in repo)
 uploads/
 .env.local
+
+application.properties

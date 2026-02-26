@@ -7,14 +7,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
-import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -24,7 +22,6 @@ import java.util.Arrays;
 
 @Configuration
 @EnableWebSecurity
-//@EnableGlobalMethodSecurity(prePostEnabled = true)
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
 
@@ -51,15 +48,24 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                 .antMatchers("/api/foods", "/foods").permitAll()
                 .antMatchers("/api/ingredients", "/ingredients").permitAll()
                 .antMatchers("/api/foods/{id}", "/foods/{id}").permitAll()
-                .antMatchers("/api/user/guest", "/user/guest").permitAll()
+                .antMatchers("/api/user/*", "/user/guest").permitAll()
                 .antMatchers("/api/images/**","/images/**").permitAll()
-                .antMatchers("/api/orders/**","/orders/**").permitAll()
                 .antMatchers("/api/payments/**","/payments/**").permitAll()
                 .antMatchers("/api/user/register","/user/register").permitAll()
                 .antMatchers("/api/user/check-email","/user/check-email").permitAll()
+                .antMatchers("/api/orders/by-email", "/orders/by-email").permitAll()
+                .antMatchers("/api/soft-drinks", "/soft-drinks").permitAll()
+
+
+
+
+                .antMatchers("/api/orders/**","/orders/**").hasAnyRole("ADMIN","EMPLOYEE","USER","GUEST")
+
 
 
                 .antMatchers("/api/foods/admin/**", "/foods/admin/**").hasRole("ADMIN")
+                .antMatchers("/api/soft-drinks/admin/**", "/foods/soft-drinks/admin/**").hasRole("ADMIN")
+                .antMatchers("/api/admin/employees/**", "/admin/employees/**").hasRole("ADMIN")
                 .antMatchers("/api/ingredients/admin/**", "/ingredients/admin/**").hasRole("ADMIN")
                 .antMatchers("/api/user/**").hasAnyRole("USER", "ADMIN")
 

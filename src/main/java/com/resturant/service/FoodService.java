@@ -1,6 +1,4 @@
 package com.resturant.service;
-
-import com.resturant.dto.FoodDTO;
 import com.resturant.dto.FoodRequestDTO;
 import com.resturant.dto.FoodResponseDTO;
 

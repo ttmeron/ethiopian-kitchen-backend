@@ -10,7 +10,6 @@ import com.resturant.repository.OrderRepository;
 import com.resturant.repository.PaymentRepository;
 import com.resturant.service.PaymentService;
 import com.stripe.exception.SignatureVerificationException;
-import com.stripe.model.Charge;
 import com.stripe.model.Event;
 import com.stripe.model.PaymentIntent;
 import com.stripe.model.StripeObject;
@@ -54,14 +53,12 @@ public class StripeWebhookController {
         }
 
         String eventType = event.getType();
-        System.out.println("Received Stripe event type: " + eventType);
 
         if ("payment_intent.succeeded".equals(eventType)) {
             handlePaymentIntentSucceeded(event);
         } else if ("charge.succeeded".equals(eventType)) {
             handleChargeSucceededManually(payload);
         } else {
-            System.out.println("Unhandled event type: " + eventType);
         }
 
         return ResponseEntity.ok("");
@@ -73,15 +70,10 @@ private void handlePaymentIntentSucceeded(Event event) {
         StripeObject stripeObject = optionalObject.get();
         if (stripeObject instanceof PaymentIntent) {
             PaymentIntent paymentIntent = (PaymentIntent) stripeObject;
-            System.out.println("PaymentIntent succeeded: " + paymentIntent.getId());
-
-            // ADD THIS LOG
             Payment payment = paymentRepository.findByPaymentId(paymentIntent.getId())
                     .orElse(null);
             if (payment == null) {
-                System.out.println("No payment found for PaymentIntent ID: " + paymentIntent.getId());
             } else {
-                System.out.println("Payment found, updating status");
                 paymentService.updatePaymentStatus(paymentIntent.getId(), PaymentStatus.SUCCESS);
             }
 
@@ -95,16 +87,11 @@ private void handlePaymentIntentSucceeded(Event event) {
 
     private void handleChargeSucceededManually(String payload) {
         try {
-            // Use simple Jackson to parse payload
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode rootNode = objectMapper.readTree(payload);
             JsonNode dataNode = rootNode.path("data").path("object");
             String paymentIntentId = dataNode.path("payment_intent").asText();
 
-            System.out.println("Charge succeeded (manual parsing)");
-            System.out.println("PaymentIntent ID from charge: " + paymentIntentId);
-
-            // Retrieve PaymentIntent to proceed
             PaymentIntent paymentIntent = PaymentIntent.retrieve(paymentIntentId);
             processPaymentSuccess(paymentIntent);
 
@@ -117,8 +104,6 @@ private void handlePaymentIntentSucceeded(Event event) {
         String paymentId = intent.getId();
         String orderIdStr = intent.getMetadata().get("orderId");
 
-        System.out.println("Processing paymentIntent: " + paymentId);
-        System.out.println("Order ID from metadata: " + orderIdStr);
 
         Payment payment = paymentRepository.findByPaymentId(paymentId)
                 .orElseThrow(() -> new RuntimeException("Payment not found yet."));

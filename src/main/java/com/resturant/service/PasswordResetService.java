@@ -27,18 +27,14 @@ public class PasswordResetService {
     }
 
     public String generateResetToken(String email) {
-        // Generate a secure random token
         byte[] randomBytes = new byte[32];
         secureRandom.nextBytes(randomBytes);
         String token = base64Encoder.encodeToString(randomBytes);
 
-        // Set expiration (1 hour from now)
         Date expiresAt = new Date(System.currentTimeMillis() + 60 * 60 * 1000);
 
-        // Store token
         resetTokens.put(token, new PasswordResetToken(email, expiresAt));
 
-        // Clean up expired tokens
         cleanUpExpiredTokens();
 
         return token;

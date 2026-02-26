@@ -2,21 +2,24 @@ package com.resturant.dto;
 
 import lombok.*;
 
-import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
+import java.math.BigDecimal;
 import java.util.List;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
+@ToString
 @Setter
 @Getter
+@Builder
 public class GuestOrderDTO {
 
     @NotBlank
     private String guestEmail;
+    private String guestToken;
+
 
     @NotBlank
     private  String guestName;
@@ -26,5 +29,5 @@ public class GuestOrderDTO {
 
     private String specialInstructions;
 
-    private double totalAmount;
+    private BigDecimal totalAmount;
 }

@@ -1,6 +1,5 @@
 package com.resturant.service;
 
-import com.resturant.dto.FoodDTO;
 import com.resturant.dto.FoodRequestDTO;
 import com.resturant.dto.FoodResponseDTO;
 import com.resturant.dto.IngredientCostDTO;
@@ -9,6 +8,7 @@ import com.resturant.entity.FoodIngredient;
 import com.resturant.entity.Ingredient;
 import com.resturant.exception.ResourceNotFoundException;
 import com.resturant.mapper.FoodMapper;
+import com.resturant.repository.FoodIngredientRepository;
 import com.resturant.repository.FoodRepository;
 import com.resturant.repository.IngredientRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 @Slf4j
 @Service
@@ -30,6 +30,8 @@ public class FoodServiceImpl implements FoodService{
     @Autowired
     IngredientRepository ingredientRepository;
     @Autowired
+    FoodIngredientRepository foodIngredientRepository;
+    @Autowired
     FoodMapper foodMapper;
 
 
@@ -39,7 +41,7 @@ public class FoodServiceImpl implements FoodService{
 
 
         log.info("Received ingredients: {}", foodRequestDTO.getIngredients());
-        // 1. First create and save the food entity alone
+
         Food food = new Food();
         food.setName(foodRequestDTO.getName());
         food.setPrice(foodRequestDTO.getPrice());
@@ -47,7 +49,6 @@ public class FoodServiceImpl implements FoodService{
         food.setDescription(foodRequestDTO.getDescription());
         food.setImagePath(foodRequestDTO.getImagePath());
 
-        // 2. Process ingredients only after food is persisted
         if (foodRequestDTO.getIngredients() != null && !foodRequestDTO.getIngredients().isEmpty()) {
 
             log.info("Processing {} ingredients", foodRequestDTO.getIngredients().size());
@@ -65,7 +66,6 @@ public class FoodServiceImpl implements FoodService{
             }
         }
 
-            // Set the collection and save again
             Food savedFood = foodRepository.save(food);
         log.info("Saved food ID: {}", savedFood.getId());
         log.info("Food's ingredients count: {}", savedFood.getFoodIngredients().size());
@@ -73,24 +73,15 @@ public class FoodServiceImpl implements FoodService{
 
     }
 
-
-
     @Override
     public FoodResponseDTO getFoodById(Long id) {
         Food food = foodRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Food not found with id: " + id));
-        // ADD THIS DEBUG LOGGING
-        System.out.println("=== FOOD API DEBUG ===");
-        System.out.println("Food: " + food.getName());
-        System.out.println("Food ingredients count: " + food.getFoodIngredients().size());
+
 
         food.getFoodIngredients().forEach(foodIngredient -> {
             Ingredient ingredient = foodIngredient.getIngredient();
-            System.out.println("Ingredient: " + ingredient.getName());
-            System.out.println("  Ingredient base extraCost: " + ingredient.getExtraCost());
-            System.out.println("  FoodIngredient extraCost: " + foodIngredient.getExtraCost());
         });
-        System.out.println("=== END DEBUG ===");
 
         return foodMapper.toResponseDTO(food);
     }
@@ -109,10 +100,8 @@ public class FoodServiceImpl implements FoodService{
         Food existingFood = foodRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Food not found with id: " + id));
 
-        // Update basic fields
         foodMapper.updateFromRequest(foodRequestDTO, existingFood);
 
-        // Handle ingredients update
         if (foodRequestDTO.getIngredients() != null) {
             updateIngredients(existingFood, foodRequestDTO.getIngredients());
         }
@@ -128,7 +117,6 @@ public class FoodServiceImpl implements FoodService{
         foodRepository.delete(food);
     }
 
-    // Helper methods
     private void validateFoodRequest(FoodRequestDTO foodRequestDTO) {
         if (foodRequestDTO == null) {
             throw new IllegalArgumentException("Food request cannot be null");
@@ -142,7 +130,7 @@ public class FoodServiceImpl implements FoodService{
     }
 
     private void processIngredients(Food food, List<IngredientCostDTO> ingredientDTOs) {
-        food.clearIngredients(); // Safely clears existing ingredients
+        food.clearIngredients();
 
         ingredientDTOs.forEach(ingredientDTO -> {
             Ingredient ingredient = ingredientRepository.findById(ingredientDTO.getId())
@@ -152,11 +140,46 @@ public class FoodServiceImpl implements FoodService{
         });
     }
 
-    private void updateIngredients(Food food, List<IngredientCostDTO> ingredientDTOs) {
-        food.clearIngredients(); // Safely clears existing ingredients
+    private void updateIngredients(Food food, List<IngredientCostDTO> ingredientRequests) {
 
-        if (!ingredientDTOs.isEmpty()) {
-            processIngredients(food, ingredientDTOs);
+        Set<FoodIngredient> existingFoodIngredients = food.getFoodIngredients();
+
+        Map<Long, FoodIngredient> existingMap = new HashMap<>();
+        for (FoodIngredient fi : existingFoodIngredients) {
+            existingMap.put(fi.getIngredient().getId(), fi);
+        }
+
+        Set<Long> newIngredientIds = new HashSet<>();
+
+        for (IngredientCostDTO request : ingredientRequests) {
+            newIngredientIds.add(request.getId());
+
+            if (existingMap.containsKey(request.getId())) {
+
+                FoodIngredient existing = existingMap.get(request.getId());
+                existing.setExtraCost(request.getExtraCost());
+            } else {
+
+                Ingredient ingredient = ingredientRepository.findById(request.getId())
+                        .orElseThrow(() -> new ResourceNotFoundException(
+                                "Ingredient not found with id: " + request.getId()));
+
+                FoodIngredient foodIngredient = new FoodIngredient();
+                foodIngredient.setFood(food);
+                foodIngredient.setIngredient(ingredient);
+                foodIngredient.setExtraCost(request.getExtraCost());
+
+                food.getFoodIngredients().add(foodIngredient);
+            }
+        }
+
+        Iterator<FoodIngredient> iterator = existingFoodIngredients.iterator();
+        while (iterator.hasNext()) {
+            FoodIngredient fi = iterator.next();
+            if (!newIngredientIds.contains(fi.getIngredient().getId())) {
+                iterator.remove();
+                fi.setFood(null);
+            }
         }
     }
 }

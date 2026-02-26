@@ -1,42 +1,32 @@
 package com.resturant.controller;
 
 
-import com.resturant.dto.GuestOrderDTO;
-import com.resturant.dto.OrderDTO;
-import com.resturant.dto.PaymentRequestDTO;
-import com.resturant.dto.PaymentResponseDTO;
-import com.resturant.dto.response.GuestOrderResponseDTO;
+import com.resturant.dto.*;
 import com.resturant.entity.Order;
 import com.resturant.entity.OrderStatus;
-import com.resturant.entity.User;
-import com.resturant.exception.ErrorResponse;
 import com.resturant.mapper.OrderMapper;
 import com.resturant.repository.OrderRepository;
 import com.resturant.service.GuestOrderService;
 import com.resturant.service.GuestUserService;
 import com.resturant.service.OrderService;
 import com.stripe.model.PaymentIntent;
-import com.stripe.param.PaymentIntentCreateParams;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/orders")
-
+@Slf4j
 @Tag(name = "Order", description = "Ethiopian Kitchen Order API")
 public class OrderController {
 
@@ -77,11 +67,18 @@ public class OrderController {
             BindingResult bindingResult,
             HttpServletRequest request) {
 
+
+        for (int i = 0; i < guestOrderDTO.getOrderItemDTOS().size(); i++) {
+            OrderItemDTO item = guestOrderDTO.getOrderItemDTOS().get(i);
+
+        }
         if (bindingResult.hasErrors()) {
             return ResponseEntity.badRequest().body(bindingResult.getAllErrors());
         }
 
-        OrderDTO order = guestOrderService.createGuestOrder(guestOrderDTO);
+
+        OrderDTO order = orderService.placeGuestOrder(guestOrderDTO);
+
         return ResponseEntity.ok(order);
 
     }
@@ -140,10 +137,10 @@ public class OrderController {
         OrderDTO updatedOrder = orderService.markAsReady(orderId);
         return ResponseEntity.ok(updatedOrder);
     }
-
-
     @GetMapping("/status/{status}")
     public ResponseEntity<List<OrderDTO>> getOrdersByStatus(@PathVariable OrderStatus status) {
+
+
         List<Order> orders = orderRepository.findByStatus(status);
         List<OrderDTO> orderDTOs = orders.stream()
                 .map(orderMapper::toDTO)

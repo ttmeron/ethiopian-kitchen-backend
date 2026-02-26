@@ -28,11 +28,10 @@ public class DeliveryServiceImpl implements DeliveryService{
 
     @Override
     public DeliveryDTO createDelivery(DeliveryDTO deliveryDTO) {
-        // Validate order exists
+
         Order order = orderRepository.findById(deliveryDTO.getOrderId())
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + deliveryDTO.getOrderId()));
 
-        // Check if delivery already exists for this order
         if (deliveryRepository.existsByOrderId(deliveryDTO.getOrderId())) {
             throw new IllegalStateException("Delivery already exists for order id: " + deliveryDTO.getOrderId());
         }
@@ -66,12 +65,10 @@ public class DeliveryServiceImpl implements DeliveryService{
         Delivery existingDelivery = deliveryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Delivery not found with id: " + id));
 
-        // Update only modifiable fields
         existingDelivery.setDeliveryAddress(deliveryDTO.getDeliveryAddress());
         existingDelivery.setDeliveryTime(deliveryDTO.getDeliveryTime());
         existingDelivery.setStatus(DeliveryStatus.valueOf(deliveryDTO.getStatus()));
 
-        // If changing order
         if (!existingDelivery.getOrder().getId().equals(deliveryDTO.getOrderId())) {
             Order newOrder = orderRepository.findById(deliveryDTO.getOrderId())
                     .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + deliveryDTO.getOrderId()));
@@ -87,7 +84,6 @@ public class DeliveryServiceImpl implements DeliveryService{
         Delivery delivery = deliveryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Delivery not found with id: " + id));
 
-        // Remove reference from order
         delivery.getOrder().setDelivery(null);
 
         deliveryRepository.delete(delivery);

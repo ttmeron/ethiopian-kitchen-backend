@@ -28,6 +28,8 @@ public class Order {
     private User user;
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+    @Column(name = "guest_token")
+    private String guestToken;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -35,8 +37,6 @@ public class Order {
 
     @Column(name = "tracking_token", unique = true)
     private String trackingToken;
-    @Column(name = "stripe_payment_intent_id")
-    private String stripePaymentIntentId;
 
 
     private String orderNumber;
@@ -62,7 +62,12 @@ public class Order {
     @Column(name = "payment_status", nullable = false)
     private PaymentStatus paymentStatus = PaymentStatus.PENDING;
 
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
+
+    @OneToMany(
+            mappedBy = "order",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
     private List<OrderItem> orderItems;
 
     @OneToOne(mappedBy = "order", cascade = CascadeType.ALL)
@@ -72,6 +77,11 @@ public class Order {
     @OneToOne(mappedBy = "order", cascade = CascadeType.ALL)
     @JsonIgnore
     private Payment payment;
+
+    public void addOrderItem(OrderItem item) {
+        orderItems.add(item);
+        item.setOrder(this);
+    }
 
 
 }

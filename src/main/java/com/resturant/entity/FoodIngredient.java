@@ -27,7 +27,7 @@ public class FoodIngredient {
     @JoinColumn(name = "ingredient_id", referencedColumnName = "id", nullable = false, insertable = false, updatable = false)
     private Ingredient ingredient;
 
-    private BigDecimal extraCost; // If you want to store extra cost per ingredient in the relationship
+    private BigDecimal extraCost;
 
 
     public FoodIngredient(Food food, Ingredient ingredient, BigDecimal extraCost) {

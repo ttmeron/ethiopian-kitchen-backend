@@ -3,13 +3,10 @@ package com.resturant.mapper;
 import com.resturant.dto.OrderDTO;
 import com.resturant.dto.response.GuestOrderResponseDTO;
 import com.resturant.entity.Order;
-import org.mapstruct.AfterMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-import org.mapstruct.MappingTarget;
 import org.mapstruct.factory.Mappers;
 
-import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 
@@ -27,8 +24,6 @@ public interface OrderMapper {
     @Mapping(source = "paymentStatus", target = "paymentStatus")
     @Mapping(source = "trackingToken", target = "trackingToken")
     @Mapping(source = "specialInstructions", target = "specialInstructions")
-    @Mapping(expression = "java(order.getIsGuest() != null ? order.getIsGuest() : false)", target = "guest")
-
     @Mapping(source = "totalPrice", target = "totalPrice")
     OrderDTO toDTO(Order order);
 
@@ -48,7 +43,6 @@ public interface OrderMapper {
     GuestOrderResponseDTO toGuestResponseDTO(Order order);
 
     List<GuestOrderResponseDTO> toGuestResponseDTOList(List<Order> orders);
-
 
 }
 

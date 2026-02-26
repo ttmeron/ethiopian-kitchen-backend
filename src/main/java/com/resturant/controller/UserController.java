@@ -35,7 +35,6 @@ public class UserController {
 
     @Autowired private PasswordEncoder encoder;
 
-    // Create a new user
     @PostMapping
     @Operation(
             summary = "Create a new user",
@@ -58,6 +57,7 @@ public class UserController {
                     required = true,
                     content = @Content(schema = @Schema(implementation = UserDTO.class)))
                     @RequestBody UserDTO userDTO) {
+
         UserDTO createdUser = userService.createUser(userDTO);
         return new ResponseEntity<>(createdUser, HttpStatus.CREATED);
     }
@@ -90,24 +90,21 @@ public class UserController {
                     content = @Content(schema = @Schema(implementation = UserRegistrationDTO.class)))
                     @Valid @RequestBody UserRegistrationDTO registrationDTO) {
 
-        // Password confirmation check
         if (!registrationDTO.getPassword().equals(registrationDTO.getConfirmPassword())) {
             return ResponseEntity.badRequest().body(
                     new ErrorResponse("Validation Error", "Passwords do not match"));
         }
 
-        // Email existence check
         if (userService.emailExists(registrationDTO.getEmail())) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(
                     new ErrorResponse("Registration Error", "Email already exists"));
         }
         String hashedPassword = encoder.encode(registrationDTO.getPassword());
 
-        // Map to UserDTO
         UserDTO userDTO = UserDTO.builder()
                 .userName(registrationDTO.getUserName())
                 .email(registrationDTO.getEmail())
-                .password(hashedPassword) // Service will hash this
+                .password(hashedPassword)
                 .role("USER")
                 .build();
 
@@ -136,7 +133,6 @@ public class UserController {
         return ResponseEntity.ok(response);
     }
 
-    // Get a user by email
     @GetMapping("/{email}")
     @Operation(
             summary = "Get user by email",
@@ -199,18 +195,15 @@ public class UserController {
         String guestUsername = "guest_" + UUID.randomUUID().toString().substring(0, 8);
         String guestPassword = UUID.randomUUID().toString().substring(0, 12);
 
-
-        System.out.println("[DEBUG] Generated raw password: " + guestPassword);
-
         String encodedPassword = encoder.encode(guestPassword);
         System.out.println("[DEBUG] Encoded password: " + encodedPassword);
 
 
         UserDTO guestUser = UserDTO.builder()
                 .userName(guestUsername)
-                .email(guestUsername + "@temp.guest")  // Temporary email
-                .password(encodedPassword)  // Encoded random password
-                .role("GUEST")  // Different role for guests
+                .email(guestUsername + "@temp.guest")
+                .password(encodedPassword)
+                .role("GUEST")
                 .build();
 
         System.out.println("[DEBUG] Before createUser - DTO password: " + guestUser.getPassword());
@@ -222,7 +215,6 @@ public class UserController {
         return new ResponseEntity<>(createdGuest, HttpStatus.CREATED);
     }
 
-    // Get all users
     @GetMapping
     @Operation(
             summary = "Get all users",
@@ -238,7 +230,6 @@ public class UserController {
         return new ResponseEntity<>(users, HttpStatus.OK);
     }
 
-    // Update a user by email
     @PutMapping("/{email}")
     @Operation(
             summary = "Update user by email",
@@ -277,7 +268,6 @@ public class UserController {
         return new ResponseEntity<>(updatedUser, HttpStatus.OK);
     }
 
-    // Delete a user by email
     @DeleteMapping("/{email}")
     @Operation(
             summary = "Delete user by email",
@@ -300,9 +290,9 @@ public class UserController {
             @PathVariable String email) {
         boolean isDeleted = userService.deleteUserByEmail(email);
         if (isDeleted) {
-            return new ResponseEntity<>(HttpStatus.NO_CONTENT); // Success
+            return new ResponseEntity<>(HttpStatus.NO_CONTENT);
         } else {
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND); // User not found
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
     }
 }

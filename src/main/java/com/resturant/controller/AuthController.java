@@ -4,8 +4,6 @@ import com.resturant.dto.LoginRequest;
 import com.resturant.dto.ResetPasswordRequestDTO;
 import com.resturant.dto.response.AuthResponse;
 import com.resturant.entity.User;
-import com.resturant.exception.ErrorResponse;
-import com.resturant.exception.UserNotFoundException;
 import com.resturant.repository.UserRepository;
 import com.resturant.security.JwtUtil;
 
@@ -68,7 +66,6 @@ public class AuthController {
             return ResponseEntity.ok(new AuthResponse(token, user.getUserName(), user.getEmail()));
 
         } catch (ResponseStatusException e) {
-            // This will automatically convert to proper HTTP response
             throw e;
         } catch (Exception e) {
             throw new ResponseStatusException(
@@ -125,31 +122,19 @@ public class AuthController {
                                 "No account found with this email address");
                     });
 
-            System.out.println("User found: " + user.getEmail() + ", ID: " + user.getId());
-
-            // Generate reset token
-            System.out.println("Generating reset token...");
             String resetToken = passwordResetService.generateResetToken(normalizedEmail);
-            System.out.println("Generated token: " + resetToken);
 
-            // Send mock reset email
-            System.out.println("Sending email...");
             emailService.sendPasswordResetEmail(normalizedEmail, resetToken);
-            System.out.println("Email sent successfully");
 
             Map<String, String> response = new HashMap<>();
             response.put("message", "Password reset instructions have been sent to your email");
             response.put("debug_info", "Check server console for reset token during development");
 
-            System.out.println("=== FORGOT PASSWORD REQUEST SUCCESS ===");
             return ResponseEntity.ok(response);
 
         } catch (ResponseStatusException e) {
-            System.out.println("ResponseStatusException: " + e.getMessage());
             throw e;
         } catch (Exception e) {
-            System.out.println("=== UNEXPECTED ERROR ===");
-            System.err.println("Forgot password error: " + e.getMessage());
             e.printStackTrace();
             throw new ResponseStatusException(
                     HttpStatus.INTERNAL_SERVER_ERROR,
@@ -160,35 +145,29 @@ public class AuthController {
     @PostMapping("/reset-password")
     public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequestDTO request) {
         try {
-            // Validate token
             if (!passwordResetService.validateResetToken(request.getToken())) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid or expired reset token");
             }
 
-            // Check if passwords match
             if (!request.getNewPassword().equals(request.getConfirmPassword())) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Passwords do not match");
             }
 
-            // Check password strength
             if (request.getNewPassword().length() < 6) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password must be at least 6 characters long");
             }
 
-            // Get email from token
             String email = passwordResetService.getEmailFromToken(request.getToken());
             if (email == null) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid reset token");
             }
 
-            // Find user and update password
             User user = userRepo.findByEmailIgnoreCase(email)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
             user.setPassword(encoder.encode(request.getNewPassword()));
             userRepo.save(user);
 
-            // Invalidate the used token
             passwordResetService.invalidateToken(request.getToken());
 
             Map<String, String> response = new HashMap<>();

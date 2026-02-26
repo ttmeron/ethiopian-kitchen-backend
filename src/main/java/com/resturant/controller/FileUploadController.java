@@ -90,7 +90,6 @@ public class FileUploadController {
         }
     }
 
-    // Get image file (returns actual image data)
     @GetMapping("/{filename:.+}")
     @Operation(
             summary = "Get image content",
@@ -127,7 +126,6 @@ public class FileUploadController {
         }
     }
 
-    // Get list of all images (metadata only)
     @GetMapping
     @Operation(
             summary = "List all images",
@@ -153,7 +151,6 @@ public class FileUploadController {
         }
     }
 
-    // Delete image
     @DeleteMapping("/{filename}")
     @Operation(
             summary = "Delete an image",
@@ -185,13 +182,11 @@ public class FileUploadController {
                     required = true
             )@PathVariable String filename,
              HttpServletRequest request) {
-        String requestPath = request.getRequestURI(); // This returns String
+        String requestPath = request.getRequestURI();
 
         try {
-            // Log the deletion attempt
             log.debug("Attempting to delete file: {}", filename);
 
-            // First verify if file exists (optional but helpful)
             if (!fileManagementService.fileExists(filename)) {
 
                 log.warn("File not found for deletion: {}", filename);
@@ -223,35 +218,6 @@ public class FileUploadController {
                 }
             }
 
-            // Attempt deletion
-//            boolean deleted = fileManagementService.deleteFile(filename);
-//
-//            if (deleted) {
-//                log.info("Successfully deleted file: {}", filename);
-//                return ResponseEntity.ok(createSuccessResponse("FILE_DELETED",
-//                        "File deleted successfully", filename));
-//            } else {
-//                log.warn("File deletion failed (unknown reason): {}", filename);
-//                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-//                        .body(createErrorResponse("DELETION_FAILED",
-//                                "Failed to delete file", filename));
-//            }
-//
-//        } catch (SecurityException e) {
-//            log.error("Security violation while deleting {}: {}", filename, e.getMessage());
-//            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-//                    .body(createErrorResponse("SECURITY_VIOLATION",
-//                            e.getMessage(), filename));
-//        } catch (IOException e) {
-//            log.error("IO error while deleting {}: {}", filename, e.getMessage());
-//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-//                    .body(createErrorResponse("IO_ERROR",
-//                            "File deletion failed: " + e.getMessage(), filename));
-//        }
-//    }
-//
-//
-//    // Helper methods for consistent responses
     private Map<String, Object> createSuccessResponse(String code, String message, String filename) {
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("status", "success");

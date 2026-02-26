@@ -42,7 +42,6 @@ public class FoodRequestDTO {
     )
     private String imagePath;
 
-//    private String imageName;  // Add this
 
     @Schema(
             description = "Price of the dish in Ethiopian Birr",

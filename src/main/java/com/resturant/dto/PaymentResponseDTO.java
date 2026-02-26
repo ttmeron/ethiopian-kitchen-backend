@@ -15,6 +15,10 @@ public class PaymentResponseDTO {
 
     private String paymentIntentId;
 
+    private String guestToken;
+
+    private java.math.BigDecimal amount;
+
     public PaymentResponseDTO(String clientSecret, String paymentId, String status) {
         this.clientSecret = clientSecret;
         this.paymentId = paymentId;

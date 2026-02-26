@@ -1,16 +1,9 @@
 package com.resturant.controller;
 
 import com.resturant.dto.*;
-import com.resturant.entity.Order;
-import com.resturant.entity.PaymentStatus;
-import com.resturant.entity.User;
-import com.resturant.mapper.PaymentMapper;
-import com.resturant.repository.UserRepository;
 import com.resturant.service.GuestUserService;
 import com.resturant.service.OrderService;
 import com.resturant.service.PaymentService;
-import com.resturant.service.UserService;
-import com.stripe.model.PaymentIntent;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -24,6 +17,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/payments")
 @RequiredArgsConstructor
+
 public class PaymentController {
 
     private final PaymentService paymentService;
@@ -36,19 +30,16 @@ public class PaymentController {
     @Operation(summary = "Initiate payment for a guest order")
     public ResponseEntity<PaymentResponseDTO> initiateGuestPayment(@RequestBody @Valid GuestOrderDTO guestOrderDTO) {
 
-
+        System.out.println("⚡ Using PaymentService implementation: " + paymentService.getClass().getName());
         System.out.println("Received guest order: " + guestOrderDTO);
         try {
-            // Use GuestOrderDTO directly
-            PaymentResponseDTO paymentResponse = orderService.createGuestPaymentIntent(guestOrderDTO);
+            PaymentResponseDTO paymentResponse = paymentService.createGuestPaymentIntent(guestOrderDTO);
             return ResponseEntity.ok(paymentResponse);
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
-
-
 
     @PostMapping("/confirm")
     public ResponseEntity<Map<String, String>> manuallyConfirm(@RequestBody PaymentConfirmRequestDTO request) {

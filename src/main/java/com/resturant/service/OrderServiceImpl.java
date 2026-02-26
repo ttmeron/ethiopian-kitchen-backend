@@ -1,6 +1,7 @@
 package com.resturant.service;
 
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.resturant.dto.*;
 import com.resturant.entity.*;
 import com.resturant.exception.ResourceNotFoundException;
@@ -14,7 +15,6 @@ import com.stripe.model.PaymentIntent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -54,9 +54,10 @@ public class OrderServiceImpl implements OrderService {
     @Autowired
     OrderItemMapper orderItemMapper;
     @Autowired
+    SoftDrinkRepository softDrinkRepository;
+    @Autowired
     OrderItemIngredientMapper orderItemIngredientMapper;
-    private final GuestUserService guestUserService;
-    private final PasswordEncoder passwordEncoder;
+    private final ObjectMapper objectMapper;
 
 
     @Transactional
@@ -68,11 +69,9 @@ public class OrderServiceImpl implements OrderService {
         if (orderDTO.isGuest())
             throw new IllegalArgumentException("Use placeGuestOrder for guest users");
 
-        // 1️⃣ Find user by email
         User user = userRepository.findByEmail(orderDTO.getEmail())
                 .orElseThrow(() -> new RuntimeException("User not found: " + orderDTO.getEmail()));
 
-        // 2️⃣ Create and save order first to get an ID
         Order order = new Order();
         order.setUser(user);
         order.setIsGuest(false);
@@ -80,43 +79,85 @@ public class OrderServiceImpl implements OrderService {
         order.setPaymentStatus(PaymentStatus.PENDING);
         order.setSpecialInstructions(orderDTO.getSpecialInstructions());
         order.setOrderNumber(UUID.randomUUID().toString());
+        order.setGuestToken(generateGuestToken());
+        order.setTrackingToken(generateTrackingToken());
         order.setCreatedAt(LocalDateTime.now());
         order = orderRepository.save(order);
 
-        // 3️⃣ Process order items - CALCULATE EVERYTHING FROM DATABASE PRICES
         List<OrderItem> savedItems = new ArrayList<>();
         BigDecimal orderSubtotal = BigDecimal.ZERO;
 
-        System.out.println("=== BACKEND SECURE CALCULATION START ===");
 
         for (OrderItemDTO itemDTO : orderDTO.getOrderItems()) {
-            // Get food price FROM DATABASE (ignore frontend price)
+
+            if (itemDTO.getItemType() != null &&
+                  "DRINK".equalsIgnoreCase(itemDTO.getItemType())) {
+                SoftDrink drink = softDrinkRepository.findActiveById(itemDTO.getDrinkId())
+                        .orElseThrow(() -> new RuntimeException("Drink not found: " + itemDTO.getDrinkId()));
+
+                OrderItem orderItem = new OrderItem();
+                orderItem.setOrder(order);
+                orderItem.setDrink(drink);
+                orderItem.setItemType(OrderItem.ItemType.DRINK);
+                orderItem.setQuantity(itemDTO.getQuantity());
+                if (itemDTO.getSize() != null) {
+                    orderItem.setSize(itemDTO.getSize());
+                }
+                if (itemDTO.getIceOption() != null) {
+                    orderItem.setIceOption(itemDTO.getIceOption());
+                }
+
+                BigDecimal basePrice = drink.getPrice();
+
+                if (itemDTO.getSize() != null) {
+
+                    BigDecimal multiplier = getSizeMultiplier(itemDTO.getSize());
+                    basePrice = basePrice.multiply(multiplier);
+                }
+
+                BigDecimal backendItemPrice = basePrice.multiply(BigDecimal.valueOf(itemDTO.getQuantity()));
+
+                orderItem.setPrice(backendItemPrice);
+
+                Map<String, String> customizations = new HashMap<>();
+                if (itemDTO.getSize() != null) customizations.put("size", itemDTO.getSize());
+                if (itemDTO.getIceOption() != null) customizations.put("ice", itemDTO.getIceOption());
+
+                try {
+                    java.lang.reflect.Method setCustomizationsMethod = OrderItem.class.getMethod("setCustomizations", String.class);
+
+                    setOrderItemCustomizations(orderItem, customizations);
+                }catch (NoSuchMethodException e) {
+                    log.warn("OrderItem entity doesn't have setCustomizations method. Please add this field to the entity.");
+                }
+
+                OrderItem savedOrderItem = orderItemRepository.save(orderItem);
+                savedItems.add(savedOrderItem);
+
+                orderSubtotal = orderSubtotal.add(backendItemPrice);
+
+
+                continue;
+            }
+
             Food food = foodRepository.findById(itemDTO.getFoodId())
                     .orElseThrow(() -> new RuntimeException("Food not found: " + itemDTO.getFoodId()));
-
             OrderItem orderItem = new OrderItem();
             orderItem.setOrder(order);
             orderItem.setFood(food);
+            orderItem.setItemType(OrderItem.ItemType.FOOD);
             orderItem.setQuantity(itemDTO.getQuantity());
 
-            // Calculate base price FROM DATABASE
             BigDecimal basePrice = food.getPrice().multiply(BigDecimal.valueOf(itemDTO.getQuantity()));
             BigDecimal ingredientsTotal = BigDecimal.ZERO;
 
-            System.out.println("--- Processing: " + food.getName() + " ---");
-            System.out.println("DB Food Price: " + food.getPrice());
-            System.out.println("Quantity: " + itemDTO.getQuantity());
-            System.out.println("Base Price: " + basePrice);
 
-            // Process ingredients - GET PRICES FROM DATABASE
             List<OrderItemIngredient> itemIngredients = new ArrayList<>();
             if (itemDTO.getCustomIngredients() != null) {
                 for (OrderItemIngredientDTO ingDTO : itemDTO.getCustomIngredients()) {
                     if (ingDTO.getIngredientId() == null) {
                         throw new IllegalArgumentException("Ingredient ID cannot be null");
                     }
-
-                    // Get ingredient price FROM DATABASE
                     Ingredient ingredient = ingredientRepository.findById(ingDTO.getIngredientId())
                             .orElseThrow(() -> new RuntimeException("Ingredient not found: " + ingDTO.getIngredientId()));
 
@@ -124,34 +165,21 @@ public class OrderServiceImpl implements OrderService {
                     oi.setOrderItem(orderItem);
                     oi.setIngredient(ingredient);
                     oi.setQuantity(ingDTO.getQuantity() != 0 ? ingDTO.getQuantity() : 1);
-                    oi.setExtraCost(ingredient.getExtraCost()); // Use DB price
+                    oi.setExtraCost(ingredient.getExtraCost());
 
                     itemIngredients.add(oi);
 
-                    // Calculate ingredient cost
                     BigDecimal ingredientCost = ingredient.getExtraCost().multiply(BigDecimal.valueOf(oi.getQuantity()));
                     ingredientsTotal = ingredientsTotal.add(ingredientCost);
 
-                    System.out.println("Ingredient: " + ingredient.getName());
-                    System.out.println("  DB Extra Cost: " + ingredient.getExtraCost());
-                    System.out.println("  Quantity: " + oi.getQuantity());
-                    System.out.println("  Cost: " + ingredientCost);
                 }
             }
 
-            System.out.println("Total Ingredients Cost: " + ingredientsTotal);
-
-            // CALCULATE FINAL ITEM PRICE FROM DATABASE PRICES (ignore frontend price)
             BigDecimal backendItemPrice = basePrice.add(ingredientsTotal);
-            orderItem.setPrice(backendItemPrice); // Use backend calculation
+            orderItem.setPrice(backendItemPrice);
 
-            System.out.println("Backend Calculated Price: " + backendItemPrice);
-            System.out.println("Frontend Sent Price: " + itemDTO.getPrice()); // Just for comparison
-
-            // Save order item
             OrderItem savedOrderItem = orderItemRepository.save(orderItem);
 
-            // Save ingredients
             if (!itemIngredients.isEmpty()) {
                 itemIngredients.forEach(ing -> ing.setOrderItem(savedOrderItem));
                 orderItemIngredientRepository.saveAll(itemIngredients);
@@ -160,96 +188,104 @@ public class OrderServiceImpl implements OrderService {
 
             savedItems.add(savedOrderItem);
 
-            // Add to subtotal (INSIDE THE LOOP - CRITICAL FIX)
             orderSubtotal = orderSubtotal.add(backendItemPrice);
-            System.out.println("Current Subtotal: " + orderSubtotal);
-            System.out.println("--- End: " + food.getName() + " ---");
         }
 
-        System.out.println("FINAL SUBTOTAL: " + orderSubtotal);
-
-        // 4️⃣ Calculate tax and total - USE BACKEND CALCULATION
         BigDecimal taxRate = new BigDecimal("0.08");
         BigDecimal taxAmount = orderSubtotal.multiply(taxRate).setScale(2, RoundingMode.HALF_UP);
         BigDecimal backendTotalPrice = orderSubtotal.add(taxAmount);
 
-        System.out.println("Tax (8%): " + taxAmount);
-        System.out.println("BACKEND TOTAL: " + backendTotalPrice);
-
-        // 5️⃣ Security Validation - Compare with frontend (for fraud detection)
         if (orderDTO.getTotalPrice() != null) {
             BigDecimal frontendTotalPrice = orderDTO.getTotalPrice();
             BigDecimal difference = frontendTotalPrice.subtract(backendTotalPrice).abs();
             BigDecimal tolerance = new BigDecimal("0.01");
 
-            System.out.println("=== SECURITY VALIDATION ===");
-            System.out.println("Frontend Total: " + frontendTotalPrice);
-            System.out.println("Backend Total: " + backendTotalPrice);
-            System.out.println("Difference: " + difference);
 
             if (difference.compareTo(tolerance) > 0) {
                 System.out.println("⚠️  WARNING: Price discrepancy detected!");
-                // Log this for security monitoring
+
             }
             System.out.println("=== END VALIDATION ===");
         }
 
-        // 6️⃣ Always use backend calculation for security
         order.setTotalPrice(backendTotalPrice);
         order = orderRepository.save(order);
 
-        System.out.println("✅ ORDER COMPLETED - Total: " + order.getTotalPrice());
-        System.out.println("=== BACKEND SECURE CALCULATION END ===");
-
         return orderMapper.toDTO(order);
-    }
-    public OrderDTO mapGuestOrderToOrderDTO(GuestOrderDTO guestOrderDTO) {
-        if (guestOrderDTO == null) {
-            throw new IllegalArgumentException("GuestOrderDTO cannot be null");
-        }
-
-        OrderDTO orderDTO = new OrderDTO();
-        orderDTO.setUserName(guestOrderDTO.getGuestName());       // map guestName
-        orderDTO.setEmail(guestOrderDTO.getGuestEmail());         // map guestEmail
-        orderDTO.setOrderItems(guestOrderDTO.getOrderItemDTOS()); // map order items
-        orderDTO.setSpecialInstructions(guestOrderDTO.getSpecialInstructions());
-        orderDTO.setGuest(true);                                // mark as guest
-        orderDTO.setPaymentStatus(PaymentStatus.PENDING);         // default
-
-        return orderDTO;
     }
 
     @Transactional
     @Override
     public OrderDTO placeGuestOrder(GuestOrderDTO guestOrderDTO) {
+
         if (guestOrderDTO == null) throw new IllegalArgumentException("Guest order cannot be null");
 
-        // 1️⃣ Prepare Order entity
         Order order = new Order();
         order.setIsGuest(true);
         order.setGuestName(guestOrderDTO.getGuestName());
         order.setGuestEmail(guestOrderDTO.getGuestEmail());
+        order.setGuestToken(guestOrderDTO.getGuestToken());
         order.setStatus(OrderStatus.PENDING);
+        order.setPaymentStatus(PaymentStatus.PENDING);
         order.setSpecialInstructions(guestOrderDTO.getSpecialInstructions());
+        order.setOrderNumber(generateOrderNumber());
+        order.setTrackingToken(generateTrackingToken());
+        order.setCreatedAt(LocalDateTime.now());
 
-        // 2️⃣ Prepare OrderItems
         BigDecimal orderTotal = BigDecimal.ZERO;
         List<OrderItem> orderItems = new ArrayList<>();
 
         for (OrderItemDTO itemDTO : guestOrderDTO.getOrderItemDTOS()) {
+
+            if ("DRINK".equalsIgnoreCase(itemDTO.getItemType())) {
+
+                SoftDrink drink = softDrinkRepository
+                        .findActiveById(itemDTO.getDrinkId())
+                        .orElseThrow(() -> new RuntimeException("Drink not found"));
+
+                OrderItem orderItem = new OrderItem();
+                orderItem.setOrder(order);
+                orderItem.setDrink(drink);
+                orderItem.setItemType(OrderItem.ItemType.DRINK);
+                orderItem.setQuantity(itemDTO.getQuantity());
+                orderItem.setSize(itemDTO.getSize());
+                orderItem.setIceOption(itemDTO.getIceOption());
+
+                BigDecimal basePrice = drink.getPrice();
+
+                if (itemDTO.getSize() != null) {
+                    basePrice = basePrice.multiply(getSizeMultiplier(itemDTO.getSize()));
+                }
+                BigDecimal itemPrice = basePrice.multiply(BigDecimal.valueOf(itemDTO.getQuantity()));
+                orderItem.setPrice(itemPrice);
+
+                Map<String, String> customizations = new HashMap<>();
+                if (itemDTO.getSize() != null) customizations.put("size", itemDTO.getSize());
+                if (itemDTO.getIceOption() != null) customizations.put("ice", itemDTO.getIceOption());
+
+                setOrderItemCustomizations(orderItem, customizations);
+
+                orderItems.add(orderItem);
+                orderTotal = orderTotal.add(itemPrice);
+
+                continue;
+            }
+
             Food food = foodRepository.findById(itemDTO.getFoodId())
                     .orElseThrow(() -> new RuntimeException("Food not found: " + itemDTO.getFoodId()));
 
             OrderItem orderItem = new OrderItem();
             orderItem.setOrder(order);
             orderItem.setFood(food);
+            orderItem.setItemType(OrderItem.ItemType.FOOD);
             orderItem.setQuantity(itemDTO.getQuantity());
 
-            // Map extra ingredients
             List<OrderItemIngredient> ingredients = new ArrayList<>();
             BigDecimal extraCost = BigDecimal.ZERO;
+
             if (itemDTO.getCustomIngredients() != null) {
                 for (OrderItemIngredientDTO ciDTO : itemDTO.getCustomIngredients()) {
+
                     Ingredient ingredient = ingredientRepository.findById(ciDTO.getIngredientId())
                             .orElseThrow(() -> new RuntimeException("Ingredient not found: " + ciDTO.getIngredientId()));
 
@@ -265,52 +301,49 @@ public class OrderServiceImpl implements OrderService {
 
             orderItem.setOrderItemIngredients(ingredients);
 
-            // Calculate total price for this order item
             BigDecimal totalPrice = (food.getPrice().add(extraCost)).multiply(BigDecimal.valueOf(itemDTO.getQuantity()));
+
             orderItem.setPrice(totalPrice);
 
             orderItems.add(orderItem);
             orderTotal = orderTotal.add(totalPrice);
         }
+        System.out.println("Set " + orderItems.size() + " items to order");
 
         order.setOrderItems(orderItems);
-        order.setTotalPrice(orderTotal);
 
-        // 3️⃣ Save order
-        order = orderRepository.save(order);
+        BigDecimal taxRate = new BigDecimal("0.08");
+        BigDecimal taxAmount = orderTotal.multiply(taxRate).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal totalWithTax = orderTotal.add(taxAmount);
+        order.setTotalPrice(totalWithTax);
 
-        // 4️⃣ Map to DTO
-        return orderMapper.toDTO(order);
+        Order savedOrder = orderRepository.save(order);
+
+        return orderMapper.toDTO(savedOrder);
     }
 
 
     @Transactional
     @Override
     public OrderDTO payForOrder(Long orderId, PaymentRequestDTO paymentRequest) {
-        // 1️⃣ Fetch the order from DB using the path variable
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
 
-        // 1a️⃣ Ensure totalPrice is not null
         if (order.getTotalPrice() == null) {
             throw new RuntimeException("Order total price is not calculated yet!");
         }
 
-        // 2️⃣ Build a safe PaymentRequestDTO from order data
         PaymentRequestDTO stripeRequest = new PaymentRequestDTO();
         stripeRequest.setOrderId(orderId);
-        stripeRequest.setAmount(order.getTotalPrice().doubleValue());   // ✅ safe now
+        stripeRequest.setAmount(order.getTotalPrice().doubleValue());
         stripeRequest.setPaymentMethod(paymentRequest.getPaymentMethod());
         stripeRequest.setGuestEmail(paymentRequest.getGuestEmail());
         stripeRequest.setGuestName(paymentRequest.getGuestName());
 
-        // 3️⃣ Initiate payment with Stripe
         PaymentResponseDTO paymentResponse = paymentService.initiatePayment(stripeRequest);
 
-        // 4️⃣ Confirm payment (synchronously here, or via webhook)
         paymentService.confirmPayment(paymentResponse.getPaymentIntentId());
 
-        // 5️⃣ Update order status
         order.setPaymentStatus(PaymentStatus.PAID);
         order.setStatus(OrderStatus.CONFIRMED);
         orderRepository.save(order);
@@ -318,13 +351,9 @@ public class OrderServiceImpl implements OrderService {
         return orderMapper.toDTO(order);
     }
 
-
-
-
-
     @Override
     public PaymentResponseDTO createGuestPaymentIntent(GuestOrderDTO guestOrderDTO) throws StripeException {
-        long amountInCents = (long) (guestOrderDTO.getTotalAmount() * 100); // convert to cents
+        BigDecimal amountInCents = (BigDecimal) (guestOrderDTO.getTotalAmount() .multiply(BigDecimal.valueOf(100)));
 
         try{
         Map<String, Object> params = new HashMap<>();
@@ -336,16 +365,6 @@ public class OrderServiceImpl implements OrderService {
         params.put("automatic_payment_methods", autoPaymentMethods);
 
         PaymentIntent paymentIntent = PaymentIntent.create(params);
-            Payment payment = new Payment();
-            payment.setPaymentId(paymentIntent.getId());
-            payment.setAmount(guestOrderDTO.getTotalAmount());
-            payment.setStatus(PaymentStatus.PENDING); // Will be updated to SUCCESS later
-            payment.setPaymentDate(LocalDateTime.now());
-            // Don't set order yet - order will be created in createGuestOrderAfterPayment
-            paymentRepository.save(payment);
-
-
-
             return new PaymentResponseDTO(
                 paymentIntent.getClientSecret(),
                 paymentIntent.getId(),
@@ -353,85 +372,95 @@ public class OrderServiceImpl implements OrderService {
         );
 
     } catch (Exception e) {
+            e.printStackTrace();
         throw new RuntimeException("Error creating payment intent", e);
     }
     }
+    private BigDecimal getSizeMultiplier(String size) {
+        if (size == null) return BigDecimal.ONE;
+
+        String sizeLower = size.toLowerCase();
+        switch(sizeLower) {
+            case "small":
+            case "250ml":
+                return BigDecimal.ONE;
+            case "medium":
+            case "500ml":
+            case "regular":
+                return new BigDecimal("1.5");
+            case "large":
+            case "1l":
+                return new BigDecimal("2.0");
+            default:
+                return BigDecimal.ONE;
+        }
+    }
+
+    private String generateOrderNumber() {
+        return "ORD-" + System.currentTimeMillis() + "-" + (int)(Math.random() * 1000);
+    }
+
+    private String generateGuestToken() {
+        return UUID.randomUUID().toString();
+    }
+
+    private String generateTrackingToken() {
+        return "TRK-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+    }
+    @Override
     public OrderDTO createGuestOrderAfterPayment(GuestOrderDTO guestOrderDTO, String paymentIntentId) {
-        // 1. Create the guest order
-        Order guestOrder = new Order();
-        guestOrder.setIsGuest(true);
-        guestOrder.setGuestEmail(guestOrderDTO.getGuestEmail());
-        guestOrder.setGuestName(guestOrderDTO.getGuestName());
-        guestOrder.setSpecialInstructions(guestOrderDTO.getSpecialInstructions());
-        guestOrder.setStatus(OrderStatus.CONFIRMED);
-        guestOrder.setPaymentStatus(PaymentStatus.PAID); // FIXED: Changed from SUCCESS to PAID
-        guestOrder.setOrderNumber(UUID.randomUUID().toString());
-        guestOrder.setCreatedAt(LocalDateTime.now());
 
-        // 2. Process order items (similar to placeOrder method)
-        BigDecimal orderSubtotal = BigDecimal.ZERO; // Subtotal before tax
-        List<OrderItem> orderItems = new ArrayList<>();
+        Optional<Order> existingOrderOpt = orderRepository.findFirstByGuestTokenAndStatusOrderByCreatedAtDesc(guestOrderDTO.getGuestToken(), OrderStatus.PENDING);
+        Order guestOrder;
 
-        for (OrderItemDTO itemDTO : guestOrderDTO.getOrderItemDTOS()) {
-            Food food = foodRepository.findById(itemDTO.getFoodId())
-                    .orElseThrow(() -> new RuntimeException("Food not found: " + itemDTO.getFoodId()));
+        if (existingOrderOpt.isPresent()) {
+            guestOrder = existingOrderOpt.get();
+            guestOrder.setStatus(OrderStatus.CONFIRMED);
+            guestOrder.setPaymentStatus(PaymentStatus.PAID);
+            guestOrder.setUpdatedAt(LocalDateTime.now());
+            guestOrder.setSpecialInstructions(guestOrderDTO.getSpecialInstructions());
 
-            OrderItem orderItem = new OrderItem();
-            orderItem.setOrder(guestOrder);
-            orderItem.setFood(food);
-            orderItem.setQuantity(itemDTO.getQuantity());
+            updateOrderItems(guestOrder, guestOrderDTO.getOrderItemDTOS());
 
-            // Calculate base price
-            BigDecimal basePrice = food.getPrice().multiply(BigDecimal.valueOf(itemDTO.getQuantity()));
-            BigDecimal extras = BigDecimal.ZERO;
+            recalculateOrderTotal(guestOrder);
 
-            // Map extra ingredients
-            List<OrderItemIngredient> ingredients = new ArrayList<>();
-            if (itemDTO.getCustomIngredients() != null) {
-                for (OrderItemIngredientDTO ciDTO : itemDTO.getCustomIngredients()) {
-                    Ingredient ingredient = ingredientRepository.findById(ciDTO.getIngredientId())
-                            .orElseThrow(() -> new RuntimeException("Ingredient not found: " + ciDTO.getIngredientId()));
+        } else {
+            guestOrder = new Order();
+            guestOrder.setIsGuest(true);
+            guestOrder.setGuestEmail(guestOrderDTO.getGuestEmail());
+            guestOrder.setGuestName(guestOrderDTO.getGuestName());
+            guestOrder.setGuestToken(guestOrderDTO.getGuestToken());
+            guestOrder.setSpecialInstructions(guestOrderDTO.getSpecialInstructions());
+            guestOrder.setStatus(OrderStatus.CONFIRMED);
+            guestOrder.setPaymentStatus(PaymentStatus.PAID);
+            guestOrder.setOrderNumber("TEMP-" + UUID.randomUUID());
+            guestOrder.setCreatedAt(LocalDateTime.now());
 
-                    OrderItemIngredient oi = new OrderItemIngredient();
-                    oi.setOrderItem(orderItem);
-                    oi.setIngredient(ingredient);
-                    oi.setQuantity(ciDTO.getQuantity() != 0 ? ciDTO.getQuantity() : 1);
-                    oi.setExtraCost(ingredient.getExtraCost() != null ? ingredient.getExtraCost() : BigDecimal.ZERO);
-
-                    ingredients.add(oi);
-                    extras = extras.add(oi.getExtraCost().multiply(BigDecimal.valueOf(oi.getQuantity())));
-                }
-            }
-
-            orderItem.setOrderItemIngredients(ingredients);
-
-            // Calculate total price for this order item (base + extras)
-            BigDecimal itemPrice = basePrice.add(extras);
-            orderItem.setPrice(itemPrice);
-
-            orderItems.add(orderItem);
-            orderSubtotal = orderSubtotal.add(itemPrice);
+            updateOrderItems(guestOrder, guestOrderDTO.getOrderItemDTOS());
         }
 
-        guestOrder.setOrderItems(orderItems);
-
-        // 3. Calculate tax and total price (ADDED TAX CALCULATION)
-        BigDecimal taxRate = new BigDecimal("0.08"); // 8% tax - use same rate as placeOrder
-        BigDecimal taxAmount = orderSubtotal.multiply(taxRate).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal totalPrice = orderSubtotal.add(taxAmount);
-
-        guestOrder.setTotalPrice(totalPrice);
-
-        // 4. Save order
         guestOrder = orderRepository.save(guestOrder);
 
-        // 5. Link payment
         Payment payment = paymentRepository.findByPaymentId(paymentIntentId)
-                .orElseThrow(() -> new RuntimeException("Payment not found: " + paymentIntentId));
+                .orElse(new Payment());
         payment.setOrder(guestOrder);
+        payment.setPaymentId(paymentIntentId);
+        payment.setAmount(guestOrder.getTotalPrice());
+        payment.setStatus(PaymentStatus.PAID);
+        payment.setPaymentDate(LocalDateTime.now());
         paymentRepository.save(payment);
 
         return orderMapper.toDTO(guestOrder);
+    }
+
+    @Override
+    public List<OrderDTO> getOrdersByUserEmailAndStatus(String email, OrderStatus status) {
+        return null;
+    }
+
+    @Override
+    public List<OrderDTO> getOrdersByStatus(OrderStatus status) {
+        return null;
     }
 
 
@@ -445,7 +474,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public List<OrderDTO> findByUserEmail(String email) {
-        List<Order> orders = orderRepository.findByUserEmail(email);
+        List<Order> orders = orderRepository.findByUserEmailOrGuestEmail(email,email);
         return orders.stream()
                 .map(orderMapper::toDTO)
                 .collect(Collectors.toList());
@@ -472,17 +501,12 @@ public class OrderServiceImpl implements OrderService {
 
         existingOrder.setSpecialInstructions(orderDTO.getSpecialInstructions());
 
-
-        // 3. Process order items
         updateOrderItems(existingOrder, orderDTO.getOrderItems());
 
-        // 4. Handle delivery
         updateOrderDelivery(existingOrder, orderDTO.getDeliveryDTO());
 
-        // 5. Recalculate total price
         recalculateOrderTotal(existingOrder);
 
-        // 6. Save and return
         Order updatedOrder = orderRepository.save(existingOrder);
         return orderMapper.toDTO(updatedOrder);
 
@@ -501,7 +525,7 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new RuntimeException("Order not found with id: " + orderId));
 
         order.setStatus(OrderStatus.READY);
-        order.setUpdatedAt(LocalDateTime.now()); // if you track time
+        order.setUpdatedAt(LocalDateTime.now());
 
         orderRepository.save(order);
 
@@ -534,33 +558,43 @@ public class OrderServiceImpl implements OrderService {
         return orderMapper.toDTO(order);
     }
 
-    // ========== HELPER METHODS ==========
 
-    private BigDecimal calculateOrderTotal(OrderDTO orderDTO) {
-        return orderDTO.getOrderItems().stream()
-                .map(itemDTO -> {
-                    // Get food price (use provided price or fetch from DB)
-                    BigDecimal itemPrice = itemDTO.getPrice() != null ?
-                            itemDTO.getPrice() :
-                            foodRepository.findById(itemDTO.getFoodId())
-                                    .orElseThrow(() -> new ResourceNotFoundException("Food not found"))
-                                    .getPrice();
+private BigDecimal calculateOrderTotal(OrderDTO orderDTO) {
+    return orderDTO.getOrderItems().stream()
+            .map(itemDTO -> {
 
-                    // Calculate base price (price × quantity)
-                    BigDecimal basePrice = itemPrice.multiply(BigDecimal.valueOf(itemDTO.getQuantity()));
+                if ("DRINK".equalsIgnoreCase(itemDTO.getItemType())) {
+                    SoftDrink drink = softDrinkRepository.findById(itemDTO.getDrinkId())
+                            .orElseThrow(() -> new ResourceNotFoundException("Drink not found"));
 
-                    // Add ingredients cost
-                    if (itemDTO.getCustomIngredients() != null) {
-                        for (OrderItemIngredientDTO ingDTO : itemDTO.getCustomIngredients()) {
-                            BigDecimal extraCost = ingDTO.getExtraCost() != null ?
-                                    ingDTO.getExtraCost() : BigDecimal.ZERO;
-                            basePrice = basePrice.add(extraCost.multiply(BigDecimal.valueOf(ingDTO.getQuantity())));
-                        }
+                    BigDecimal price = drink.getPrice();
+                    if (itemDTO.getSize() != null) {
+                        price = price.multiply(getSizeMultiplier(itemDTO.getSize()));
                     }
-                    return basePrice;
-                })
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-    }
+
+                    return price.multiply(BigDecimal.valueOf(itemDTO.getQuantity()));
+                }
+
+                Food food = foodRepository.findById(itemDTO.getFoodId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Food not found"));
+
+                BigDecimal base = food.getPrice().multiply(BigDecimal.valueOf(itemDTO.getQuantity()));
+                BigDecimal extras = BigDecimal.ZERO;
+
+                if (itemDTO.getCustomIngredients() != null) {
+                    for (OrderItemIngredientDTO ing : itemDTO.getCustomIngredients()) {
+                        Ingredient ingredient = ingredientRepository.findById(ing.getIngredientId())
+                                .orElseThrow(() -> new ResourceNotFoundException("Ingredient not found"));
+                        extras = extras.add(
+                                ingredient.getExtraCost().multiply(BigDecimal.valueOf(ing.getQuantity()))
+                        );
+                    }
+                }
+                return base.add(extras);
+            })
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+}
+
 
     private List<OrderItem> processOrderItems(Order order, OrderDTO orderDTO) {
         return orderDTO.getOrderItems().stream()
@@ -573,7 +607,6 @@ public class OrderServiceImpl implements OrderService {
                     orderItem.setFood(food);
                     orderItem.setQuantity(itemDTO.getQuantity());
 
-                    // base price = food price * quantity
                     BigDecimal basePrice = food.getPrice().multiply(BigDecimal.valueOf(itemDTO.getQuantity()));
 
                     if (itemDTO.getCustomIngredients() != null && !itemDTO.getCustomIngredients().isEmpty()) {
@@ -586,7 +619,6 @@ public class OrderServiceImpl implements OrderService {
                                     orderItemIngredient.setOrderItem(orderItem);
                                     orderItemIngredient.setIngredient(ing);
                                     orderItemIngredient.setQuantity(ingDTO.getQuantity());
-                                    // Always use DB price, not client-sent
                                     orderItemIngredient.setExtraCost(ing.getExtraCost());
 
                                     return orderItemIngredient;
@@ -608,37 +640,6 @@ public class OrderServiceImpl implements OrderService {
                 .collect(Collectors.toList());
     }
 
-//    private void buildAndSaveOrder(OrderDTO orderDTO, Order order) {
-//        order.setSpecialInstructions(orderDTO.getSpecialInstructions());
-//        order.setStatus(OrderStatus.PENDING);
-//        order.setPaymentStatus(PaymentStatus.PENDING);
-//        order.setOrderNumber(UUID.randomUUID().toString());
-//
-//        // Process items
-//        List<OrderItem> orderItems = processOrderItems(order, orderDTO);
-//        order.setOrderItems(orderItems);
-//
-//        // Subtotal
-//        BigDecimal subtotal = orderItems.stream()
-//                .map(OrderItem::getPrice)
-//                .reduce(BigDecimal.ZERO, BigDecimal::add);
-//
-//        // Tax
-//        BigDecimal taxRate = new BigDecimal("0.08"); // 8%
-//        BigDecimal tax = subtotal.multiply(taxRate).setScale(2, RoundingMode.HALF_UP);
-//
-//        // Final total
-//        BigDecimal totalPrice = subtotal.add(tax);
-//
-//        order.setTotalPrice(totalPrice);
-//
-//        if (orderDTO.isGuest()) {
-//            order.setTrackingToken(UUID.randomUUID().toString());
-//        }
-//
-//        orderRepository.save(order);
-//        processDelivery(orderDTO, order);
-//    }
 
 
     private BigDecimal calculateOrderItemTotal(OrderItemDTO itemDTO, Food food) {
@@ -654,27 +655,30 @@ public class OrderServiceImpl implements OrderService {
         return basePrice.add(extraCost).multiply(BigDecimal.valueOf(itemDTO.getQuantity()));
     }
 
-    // --- Validation
+
+
     private void validateOrderDTO(OrderDTO orderDTO) {
         if (orderDTO == null || orderDTO.getOrderItems() == null || orderDTO.getOrderItems().isEmpty()) {
             throw new IllegalArgumentException("Order items cannot be null or empty");
         }
 
         for (OrderItemDTO itemDTO : orderDTO.getOrderItems()) {
-            if (itemDTO.getFoodId() == null) {
-                throw new IllegalArgumentException("Food ID cannot be null in order items");
-            }
-            if (itemDTO.getCustomIngredients() != null) {
-                for (OrderItemIngredientDTO ingDTO : itemDTO.getCustomIngredients()) {
-                    if (ingDTO.getIngredientId() == null) {
-                        throw new IllegalArgumentException("Ingredient ID cannot be null");
-                    }
+
+            if ("DRINK".equalsIgnoreCase(itemDTO.getItemType())) {
+                if (itemDTO.getDrinkId() == null) {
+                    throw new IllegalArgumentException("Drink ID cannot be null for DRINK item");
                 }
+                continue;
+            }
+
+            if (itemDTO.getFoodId() == null) {
+                throw new IllegalArgumentException("Food ID cannot be null for FOOD item");
             }
         }
     }
 
-        private void processDelivery(OrderDTO orderDTO, Order order) {
+
+    private void processDelivery(OrderDTO orderDTO, Order order) {
             if (orderDTO.getDeliveryDTO() != null && orderDTO.getDeliveryDTO().getDeliveryAddress() != null) {
                 Delivery delivery = new Delivery();
                 delivery.setOrder(order);
@@ -685,8 +689,6 @@ public class OrderServiceImpl implements OrderService {
                 deliveryRepository.save(delivery);
             }
         }
-
-
 
     private void updateOrderDelivery(Order order, DeliveryDTO deliveryDTO) {
         if (deliveryDTO != null) {
@@ -710,13 +712,50 @@ public class OrderServiceImpl implements OrderService {
     private OrderDTO buildOrderResponseDTO(Order order) {
         OrderDTO dto = orderMapper.toDTO(order);
 
-//        BigDecimal totalPrice = order.getTotalPrice(); // already calculated
-//        dto.setTotalPrice(totalPrice);
 
         dto.setDeliveryDTO(order.getDelivery() != null ?
                 deliveryMapper.toDTO(order.getDelivery()) :
                 createNotScheduledDeliveryDTO());
         return dto;
+    }
+
+    @Override
+    @Transactional
+    public void confirmGuestPayment(String paymentIntentId, GuestOrderDTO guestOrderDTO) {
+        log.info("🔐 OrderService: Confirming guest payment for paymentIntent: {}", paymentIntentId);
+
+        try {
+            Payment payment = paymentRepository.findByPaymentId(paymentIntentId)
+                    .orElseThrow(() -> new RuntimeException("Payment not found for intentId: " + paymentIntentId));
+
+            Optional<Order> existingOrderOpt = orderRepository
+                    .findFirstByGuestTokenAndStatusOrderByCreatedAtDesc(guestOrderDTO.getGuestToken(), OrderStatus.PENDING);
+
+            if (existingOrderOpt.isPresent()) {
+                Order guestOrder = existingOrderOpt.get();
+
+                log.info("🎯 Found existing order {} for guestToken: {}", guestOrder.getId(), guestOrderDTO.getGuestToken());
+
+                guestOrder.setStatus(OrderStatus.CONFIRMED);
+                guestOrder.setPaymentStatus(PaymentStatus.PAID);
+                guestOrder.setUpdatedAt(LocalDateTime.now());
+
+                payment.setOrder(guestOrder);
+                payment.setStatus(PaymentStatus.PAID);
+                paymentRepository.save(payment);
+
+                log.info("✅ OrderService: Successfully confirmed order {} for paymentIntent: {}",
+                        guestOrder.getId(), paymentIntentId);
+
+            } else {
+                log.error("❌ No pending order found for guestToken: {}", guestOrderDTO.getGuestToken());
+                throw new RuntimeException("No pending order found for guest token: " + guestOrderDTO.getGuestToken());
+            }
+
+        } catch (Exception e) {
+            log.error("❌ OrderService: Error confirming guest payment: {}", e.getMessage());
+            throw new RuntimeException("Failed to confirm guest payment: " + e.getMessage());
+        }
     }
 
     private DeliveryDTO createNotScheduledDeliveryDTO() {
@@ -725,18 +764,18 @@ public class OrderServiceImpl implements OrderService {
         return dto;
     }
     private void clearExistingItemsSafely(Order order) {
-        // Properly clear bidirectional relationships
         if (order.getOrderItems() != null) {
-            order.getOrderItems().forEach(item -> {
+            for (OrderItem item : order.getOrderItems()) {
                 if (item.getOrderItemIngredients() != null) {
-                    item.getOrderItemIngredients().forEach(ing -> ing.setOrderItem(null));
+                    orderItemIngredientRepository.deleteAll(item.getOrderItemIngredients());
                     item.getOrderItemIngredients().clear();
                 }
-                item.setOrder(null);
-            });
+            }
+            orderItemRepository.deleteAll(order.getOrderItems());
             order.getOrderItems().clear();
         }
     }
+
     private List<OrderItemIngredient> processIngredients(OrderItem orderItem, List<OrderItemIngredientDTO> ingredientDTOs) {
         return ingredientDTOs.stream()
                 .map(ingDTO -> {
@@ -759,71 +798,129 @@ public class OrderServiceImpl implements OrderService {
         return ingredient;
     }
     private void clearExistingOrderItems(Order order) {
-        order.getOrderItems().forEach(item -> {
-            orderItemIngredientRepository.deleteAll(item.getOrderItemIngredients());
-            orderItemRepository.delete(item);
-        });
-        order.getOrderItems().clear();
+
+        if (order.getOrderItems() != null) {
+            order.getOrderItems().forEach(item -> {
+                if (item.getOrderItemIngredients() != null) {
+                    orderItemIngredientRepository.deleteAll(item.getOrderItemIngredients());
+                }
+                orderItemRepository.delete(item);
+            });
+            order.getOrderItems().clear();
+        }
+
     }
     private void updateOrderItems(Order order, List<OrderItemDTO> itemDTOs) {
-        // Clear existing items properly
-        List<OrderItem> itemsToDelete = new ArrayList<>(order.getOrderItems());
-        order.getOrderItems().clear();
-        itemsToDelete.forEach(item -> {
-            orderItemIngredientRepository.deleteAll(item.getOrderItemIngredients());
-            orderItemRepository.delete(item);
-        });
 
-        // Add new items
-        if (itemDTOs != null) {
-            itemDTOs.forEach(itemDTO -> {
+        if (order.getOrderItems() != null) {
+            order.getOrderItems().forEach(item -> {
+                if (item.getOrderItemIngredients() != null) {
+                    orderItemIngredientRepository.deleteAll(item.getOrderItemIngredients());
+                }
+                orderItemRepository.delete(item);
+            });
+            order.getOrderItems().clear();
+        }
+
+
+        List<OrderItem> newItems = new ArrayList<>();
+
+        for (OrderItemDTO itemDTO : itemDTOs) {
+
+            if ("DRINK".equalsIgnoreCase(itemDTO.getItemType())) {
+
+                SoftDrink drink = softDrinkRepository.findById(itemDTO.getDrinkId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Drink not found"));
+
                 OrderItem item = new OrderItem();
                 item.setOrder(order);
-                item.setFood(foodRepository.findById(itemDTO.getFoodId())
-                        .orElseThrow(() -> new ResourceNotFoundException("Food not found")));
+                item.setDrink(drink);
+                item.setItemType(OrderItem.ItemType.DRINK);
                 item.setQuantity(itemDTO.getQuantity());
-                item.setPrice(itemDTO.getPrice() != null ?
-                        itemDTO.getPrice() :
-                        item.getFood().getPrice().multiply(BigDecimal.valueOf(itemDTO.getQuantity())));
 
-                // Process ingredients
-                if (itemDTO.getCustomIngredients() != null) {
-                    item.setOrderItemIngredients(
-                            itemDTO.getCustomIngredients().stream()
-                                    .map(ingDTO -> {
-                                        OrderItemIngredient ing = new OrderItemIngredient();
-                                        ing.setOrderItem(item);
-                                        ing.setIngredient(ingredientRepository.findById(ingDTO.getIngredientId())
-                                                .orElseThrow(() -> new ResourceNotFoundException("Ingredient not found")));
-//                                        ing.setExtraCost(ingDTO.getExtraCost());
-                                        ing.setExtraCost( ingDTO.getExtraCost() != null ? ingDTO.getExtraCost() : BigDecimal.ZERO
-                                        );
-                                        ing.setQuantity(ingDTO.getQuantity());
-                                        return ing;
-                                    })
-                                    .collect(Collectors.toList())
-                    );
+                BigDecimal price = drink.getPrice();
+
+                if (itemDTO.getSize() != null) {
+                    price = price.multiply(getSizeMultiplier(itemDTO.getSize()));
                 }
-                order.getOrderItems().add(item);
-            });
+
+
+                item.setPrice(price.multiply(BigDecimal.valueOf(itemDTO.getQuantity())));
+
+                Map<String, String> customizations = new HashMap<>();
+                if (itemDTO.getSize() != null) {
+                    customizations.put("size", itemDTO.getSize());
+                }
+                if (itemDTO.getIceOption() != null) {
+                    customizations.put("ice", itemDTO.getIceOption());
+                }
+
+
+                orderItemRepository.save(item);
+                newItems.add(item);
+                continue;
+            }
+
+            Food food = foodRepository.findById(itemDTO.getFoodId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Food not found"));
+
+            OrderItem item = new OrderItem();
+            item.setOrder(order);
+            item.setFood(food);
+            item.setItemType(OrderItem.ItemType.FOOD);
+            item.setQuantity(itemDTO.getQuantity());
+
+            BigDecimal ingredientTotal = BigDecimal.ZERO;
+            List<OrderItemIngredient> ingredients = new ArrayList<>();
+
+            if (itemDTO.getCustomIngredients() != null) {
+                for (OrderItemIngredientDTO ingDTO : itemDTO.getCustomIngredients()) {
+                    Ingredient ing = ingredientRepository.findById(ingDTO.getIngredientId())
+                            .orElseThrow(() -> new ResourceNotFoundException("Ingredient not found"));
+
+                    OrderItemIngredient oi = new OrderItemIngredient();
+                    oi.setOrderItem(item);
+                    oi.setIngredient(ing);
+                    oi.setQuantity(ingDTO.getQuantity());
+                    oi.setExtraCost(ing.getExtraCost());
+
+                    ingredientTotal = ingredientTotal.add(
+                            ing.getExtraCost().multiply(BigDecimal.valueOf(ingDTO.getQuantity()))
+                    );
+
+                    ingredients.add(oi);
+                }
+            }
+
+            BigDecimal price = food.getPrice()
+                    .multiply(BigDecimal.valueOf(itemDTO.getQuantity()))
+                    .add(ingredientTotal);
+
+            item.setPrice(price);
+            item.setOrderItemIngredients(ingredients);
+
+            orderItemRepository.save(item);
+            orderItemIngredientRepository.saveAll(ingredients);
+
+            newItems.add(item);
         }
+
+        order.setOrderItems(newItems);
+        recalculateOrderTotal(order);
     }
 
 
     private OrderItem createOrderItem(OrderItemDTO itemDTO) {
         OrderItem item = orderItemMapper.toEntity(itemDTO);
 
-        // Set food
         Food food = foodRepository.findById(itemDTO.getFoodId())
                 .orElseThrow(() -> new ResourceNotFoundException("Food not found"));
         item.setFood(food);
 
-        // Calculate price if not provided
         if (itemDTO.getPrice() == null) {
             item.setPrice(food.getPrice().multiply(BigDecimal.valueOf(itemDTO.getQuantity())));
         }
 
-        // Process ingredients
         if (itemDTO.getCustomIngredients() != null) {
             List<OrderItemIngredient> ingredients = itemDTO.getCustomIngredients().stream()
                     .map(this::createOrderItemIngredient)
@@ -835,26 +932,32 @@ public class OrderServiceImpl implements OrderService {
         return item;
     }
     private void recalculateOrderTotal(Order order) {
-        BigDecimal total = order.getOrderItems().stream()
-                .map(OrderItem::getPrice)
-//                .map(item -> {
-//                    BigDecimal itemTotal = item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
-//
-//                    if (item.getOrderItemIngredients() != null) {
-//                        BigDecimal ingredientsTotal = item.getOrderItemIngredients().stream()
-//                                .map(ing -> ing.getExtraCost().multiply(BigDecimal.valueOf(ing.getQuantity())))
-//
-////                                .map(ing -> ing.getExtraCost().multiply(BigDecimal.valueOf(ing.getQuantity())))
-//                                .reduce(BigDecimal.ZERO, BigDecimal::add);
-//                        itemTotal = itemTotal.add(ingredientsTotal);
-//                    }
-//
-//                    return itemTotal;
-//                })
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal subtotal = BigDecimal.ZERO;
+        for (OrderItem item : order.getOrderItems()) {
+            subtotal = subtotal.add(item.getPrice());
+        }
 
-
-        order.setTotalPrice(total);
+        BigDecimal taxRate = new BigDecimal("0.08");
+        BigDecimal taxAmount = subtotal.multiply(taxRate).setScale(2, RoundingMode.HALF_UP);
+        order.setTotalPrice(subtotal.add(taxAmount));
     }
 
+
+    private void setOrderItemCustomizations(OrderItem orderItem, Map<String, String> customizations) {
+        try {
+            if (customizations != null && !customizations.isEmpty()) {
+                String customizationsJson = objectMapper.writeValueAsString(customizations);
+
+                try {
+
+                    java.lang.reflect.Method setCustomizationsMethod = OrderItem.class.getMethod("setCustomizations", String.class);
+                    setCustomizationsMethod.invoke(orderItem, customizationsJson);
+                } catch (NoSuchMethodException e) {
+                    log.warn("OrderItem.setCustomizations() method not found. Customizations not saved.");
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error setting drink customizations", e);
+        }
+    }
 }

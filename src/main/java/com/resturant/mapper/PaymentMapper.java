@@ -5,11 +5,7 @@ import com.resturant.dto.PaymentResponseDTO;
 import com.resturant.entity.Payment;
 import org.mapstruct.*;
 
-import org.mapstruct.factory.Mappers;
-import org.springframework.stereotype.Component;
-
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 @Mapper(componentModel = "spring")
 public interface PaymentMapper {

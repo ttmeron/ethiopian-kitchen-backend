@@ -13,6 +13,7 @@ public interface PaymentService {
     void updatePaymentStatus(String paymentIntentId, PaymentStatus newStatus);
     PaymentResponseDTO createPaymentIntent(PaymentRequestDTO request) throws StripeException;
     PaymentResponseDTO confirmPayment(String paymentIntentId);
+    public PaymentResponseDTO createGuestPaymentIntent(GuestOrderDTO guestOrderDTO);
 
     void confirmGuestPayment(String paymentIntentId, GuestOrderDTO guestOrderDTO);
 

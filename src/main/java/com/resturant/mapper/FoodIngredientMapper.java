@@ -21,7 +21,7 @@ public interface FoodIngredientMapper {
     @Mapping(target = "ingredientName", source = "ingredient.name")
     FoodIngredientDTO toDTO(FoodIngredient foodIngredient);
 
-    @Mapping(target = "id", ignore = true)  // We'll handle this manually
+    @Mapping(target = "id", ignore = true)
     @Mapping(target = "food", ignore = true)
     @Mapping(target = "ingredient", ignore = true)
     FoodIngredient toEntity(FoodIngredientDTO foodIngredientDTO);

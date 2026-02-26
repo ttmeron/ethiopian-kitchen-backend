@@ -3,6 +3,7 @@ package com.resturant.entity;
 import lombok.*;
 
 import javax.persistence.*;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @AllArgsConstructor
@@ -18,8 +19,9 @@ public class Payment {
 
     private String paymentId;
     private String paymentMethod;
+    @Enumerated(EnumType.STRING)
     private PaymentStatus status;
-    private Double amount;
+    private BigDecimal amount;
     private LocalDateTime paymentDate;
 
     @OneToOne

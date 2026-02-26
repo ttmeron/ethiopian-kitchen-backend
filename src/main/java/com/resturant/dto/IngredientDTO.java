@@ -14,7 +14,6 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 @Schema(description = "Ingredient information data transfer object")
 public class IngredientDTO {
-//
 
     @Schema(
             description = "Unique identifier of the ingredient",
@@ -22,8 +21,6 @@ public class IngredientDTO {
             accessMode = Schema.AccessMode.READ_ONLY
     )
     private Long id;
-//    private Long ingredientId;  // Must match JSON key
-//    private double additionalCost;
 
     @Schema(
             description = "Name of the ingredient",

@@ -23,19 +23,16 @@ import java.util.stream.Collectors;
 public interface FoodMapper {
     FoodMapper INSTANCE = Mappers.getMapper(FoodMapper.class);
 
-    // Basic mappings
     FoodDTO toDTO(Food food);
     Food toEntity(FoodDTO foodDTO);
     Set<FoodDTO> toDtoSet(Set<Food> foods);
     List<FoodDTO> toDTOList(List<Food> foodList);
     List<Food> toEntityList(List<FoodDTO> foodDTOList);
 
-    // Response mapping with explicit ingredient handling
     @Mapping(target = "ingredients", expression = "java(toIngredientCosts(food.getFoodIngredients()))")
     @Mapping(source = "category", target = "category")
     FoodResponseDTO toResponseDTO(Food food);
 
-    // Update mapping
     @Mapping(target = "foodIngredients", ignore = true)
     void updateFromRequest(FoodRequestDTO requestDTO, @MappingTarget Food food);
 
@@ -49,7 +46,6 @@ public interface FoodMapper {
                 .collect(Collectors.toList());
     }
 
-    // Helper to convert single FoodIngredient to IngredientCostDTO
     default IngredientCostDTO toIngredientCostDTO(FoodIngredient fi) {
         if (fi == null || fi.getIngredient() == null) return null;
 
@@ -60,7 +56,6 @@ public interface FoodMapper {
         return dto;
     }
 
-    // AfterMapping to ensure createdAt is populated
     @AfterMapping
     default void enhanceResponseDTO(Food food, @MappingTarget FoodResponseDTO responseDTO) {
         if (responseDTO.getCreatedAt() == null) {

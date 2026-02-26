@@ -10,27 +10,6 @@ public class EmailService {
 
     @Autowired
     JavaMailSender mailSender;
-//
-//    public void sendPasswordResetEmail(String toEmail, String resetToken) {
-//        try {
-//            // MOCK EMAIL SERVICE - No real email sending
-//            System.out.println("🔐 === PASSWORD RESET EMAIL (MOCK) ===");
-//            System.out.println("📧 To: " + toEmail);
-//            System.out.println("🔗 Reset Link: http://localhost:4200/reset-password?token=" + resetToken);
-//            System.out.println("🔑 Token (copy this): " + resetToken);
-//            System.out.println("📝 Instructions: Copy the token above and use it in the reset password page");
-//            System.out.println("🔐 === END MOCK EMAIL ===");
-//
-//            // No real email sending - this is just for development
-//            // The token is printed to console for testing
-//
-//        } catch (Exception e) {
-//            System.err.println("❌ Mock email error: " + e.getMessage());
-//            // Don't throw exception - just log it since this is mock
-//        }
-//    }
-
-
 
     public void sendPasswordResetEmail(String toEmail, String resetToken) {
         try {
