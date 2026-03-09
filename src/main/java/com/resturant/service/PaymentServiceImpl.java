@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,8 +36,9 @@ public class PaymentServiceImpl implements PaymentService {
     private final SoftDrinkRepository softDrinkRepository;
     private final OrderItemRepository orderItemRepository;
     private final OrderMapper orderMapper;
-    @Autowired
-    private final OrderService orderService;
+
+    @Lazy
+    private final  OrderService orderService;
     @Autowired
     private final GuestOrderService guestOrderService;
 

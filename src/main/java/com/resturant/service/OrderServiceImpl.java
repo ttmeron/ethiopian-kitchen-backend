@@ -14,6 +14,7 @@ import com.stripe.exception.StripeException;
 import com.stripe.model.PaymentIntent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,7 +32,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Autowired
     OrderRepository orderRepository;
-    @Autowired
+    @Lazy
     PaymentService paymentService;
     @Autowired
     UserRepository userRepository;
@@ -78,7 +79,7 @@ public class OrderServiceImpl implements OrderService {
         order.setStatus(OrderStatus.PENDING);
         order.setPaymentStatus(PaymentStatus.PENDING);
         order.setSpecialInstructions(orderDTO.getSpecialInstructions());
-        order.setOrderNumber(UUID.randomUUID().toString());
+        order.setOrderNumber("ORD-" + UUID.randomUUID().toString().substring(0,8));
         order.setGuestToken(generateGuestToken());
         order.setTrackingToken(generateTrackingToken());
         order.setCreatedAt(LocalDateTime.now());
