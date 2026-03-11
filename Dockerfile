@@ -1,5 +1,5 @@
 # Build stage
-FROM maven:3.8.5-openjdk-8 AS build
+FROM maven:3.8.5-openjdk-11 AS build
 WORKDIR /app
 
 # Copy pom.xml and download dependencies
