@@ -16,7 +16,7 @@ import java.util.List;
 @AllArgsConstructor
 @ToString
 
-@Table(name = "order_item")
+@Table(name = "\"order_item\"")
 public class OrderItem {
     public enum ItemType {
         FOOD("FOOD"),
