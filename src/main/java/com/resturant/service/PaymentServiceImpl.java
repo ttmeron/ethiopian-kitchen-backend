@@ -117,7 +117,36 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     public PaymentResponseDTO confirmPayment(String paymentIntentId) {
-        return null;
+
+        try {
+            log.info("Confirming payment for intent: {}", paymentIntentId);
+
+            // Retrieve the payment intent from Stripe
+            PaymentIntent paymentIntent = PaymentIntent.retrieve(paymentIntentId);
+
+            // Confirm it
+            Map<String, Object> confirmParams = new HashMap<>();
+            confirmParams.put("payment_method", "pm_card_visa"); // You might want to get this from the request
+            PaymentIntent confirmedIntent = paymentIntent.confirm(confirmParams);
+
+            log.info("Payment confirmed, status: {}", confirmedIntent.getStatus());
+
+            // Update payment in database
+            Payment payment = paymentRepository.findByPaymentId(paymentIntentId)
+                    .orElseThrow(() -> new RuntimeException("Payment not found"));
+            payment.setStatus(PaymentStatus.PAID);
+            paymentRepository.save(payment);
+
+            return new PaymentResponseDTO(
+                    confirmedIntent.getClientSecret(),
+                    confirmedIntent.getId(),
+                    confirmedIntent.getStatus()
+            );
+
+        } catch (StripeException e) {
+            log.error("Stripe error: {}", e.getMessage());
+            throw new RuntimeException("Failed to confirm payment: " + e.getMessage());
+        }
     }
 
     @Override
