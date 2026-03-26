@@ -85,11 +85,23 @@ public class OrderController {
 
     @PutMapping("/{id}/pay")
     @Operation(summary = "Pay for an order")
-    public ResponseEntity<OrderDTO> payForOrder(
+    public ResponseEntity<?> payForOrder(
             @PathVariable Long id,
             @Valid @RequestBody PaymentRequestDTO paymentRequest) {
-        OrderDTO dto = orderService.payForOrder(id, paymentRequest);
-        return ResponseEntity.ok(dto);
+        try {
+            System.out.println("=== PAYMENT DEBUG ===");
+            System.out.println("Order ID: " + id);
+            System.out.println("Payment Request: " + paymentRequest);
+
+            OrderDTO dto = orderService.payForOrder(id, paymentRequest);
+            return ResponseEntity.ok(dto);
+
+        } catch (Exception e) {
+            System.err.println("=== PAYMENT ERROR ===");
+            e.printStackTrace();
+            // Return the actual error message
+            return ResponseEntity.status(500).body("Payment failed: " + e.getMessage());
+        }
     }
 
 

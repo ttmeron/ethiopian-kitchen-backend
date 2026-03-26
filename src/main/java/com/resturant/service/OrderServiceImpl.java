@@ -327,29 +327,56 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     @Override
     public OrderDTO payForOrder(Long orderId, PaymentRequestDTO paymentRequest) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
 
-        if (order.getTotalPrice() == null) {
-            throw new RuntimeException("Order total price is not calculated yet!");
+        try {
+            log.info("Processing payment for order: {}", orderId);
+
+            Order order = orderRepository.findById(orderId)
+                    .orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
+
+            if (order.getTotalPrice() == null) {
+                throw new RuntimeException("Order total price is not calculated yet!");
+            }
+
+            // Create and confirm payment in ONE Stripe call
+            Map<String, Object> params = new HashMap<>();
+            params.put("amount", order.getTotalPrice().multiply(BigDecimal.valueOf(100)).intValue());
+            params.put("currency", "usd");
+            params.put("payment_method", "pm_card_visa"); // Use test card
+            params.put("confirm", true); // Confirm immediately
+            params.put("payment_method_types", Arrays.asList("card"));
+            params.put("metadata", Collections.singletonMap("orderId", order.getId()));
+
+            log.info("Creating confirmed PaymentIntent for order: {}", orderId);
+            PaymentIntent intent = PaymentIntent.create(params);
+            log.info("PaymentIntent created: {}, status: {}", intent.getId(), intent.getStatus());
+
+            // Save payment record
+            Payment payment = new Payment();
+            payment.setPaymentId(intent.getId());
+            payment.setOrder(order);
+            payment.setAmount(order.getTotalPrice());
+            payment.setStatus(PaymentStatus.PAID);
+            payment.setPaymentDate(LocalDateTime.now());
+            payment.setPaymentMethod("card");
+            paymentRepository.save(payment);
+
+            // Update order status
+            order.setPaymentStatus(PaymentStatus.PAID);
+            order.setStatus(OrderStatus.CONFIRMED);
+            orderRepository.save(order);
+
+            log.info("Payment successful for order: {}", orderId);
+
+            return orderMapper.toDTO(order);
+
+        } catch (StripeException e) {
+            log.error("Stripe error: {}", e.getMessage(), e);
+            throw new RuntimeException("Stripe payment failed: " + e.getMessage());
+        } catch (Exception e) {
+            log.error("Payment error: {}", e.getMessage(), e);
+            throw new RuntimeException("Payment failed: " + e.getMessage());
         }
-
-        PaymentRequestDTO stripeRequest = new PaymentRequestDTO();
-        stripeRequest.setOrderId(orderId);
-        stripeRequest.setAmount(order.getTotalPrice().doubleValue());
-        stripeRequest.setPaymentMethod(paymentRequest.getPaymentMethod());
-        stripeRequest.setGuestEmail(paymentRequest.getGuestEmail());
-        stripeRequest.setGuestName(paymentRequest.getGuestName());
-
-        PaymentResponseDTO paymentResponse = paymentService.initiatePayment(stripeRequest);
-
-        paymentService.confirmPayment(paymentResponse.getPaymentIntentId());
-
-        order.setPaymentStatus(PaymentStatus.PAID);
-        order.setStatus(OrderStatus.CONFIRMED);
-        orderRepository.save(order);
-
-        return orderMapper.toDTO(order);
     }
 
     @Override
