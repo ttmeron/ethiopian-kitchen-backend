@@ -67,6 +67,8 @@ public class PaymentServiceImpl implements PaymentService {
             Map<String, Object> params = new HashMap<>();
             params.put("amount", order.getTotalPrice().multiply(BigDecimal.valueOf(100)).intValue());
             params.put("currency", "usd");
+            params.put("payment_method", "pm_card_visa");
+            params.put("confirm", true);
             params.put("payment_method_types", Arrays.asList("card"));
             params.put("metadata", Collections.singletonMap("orderId", order.getId()));
 
@@ -77,10 +79,14 @@ public class PaymentServiceImpl implements PaymentService {
 
             payment.setOrder(order);
 
-            payment.setStatus(PaymentStatus.PENDING);
+            order.setPaymentStatus(PaymentStatus.PAID);
             payment.setPaymentMethod("stripe");
 
             paymentRepository.save(payment);
+            payment.setStatus(PaymentStatus.COMPLETED);
+            order.setStatus(OrderStatus.CONFIRMED);
+            orderRepository.save(order);
+
             PaymentResponseDTO responseDto = paymentMapper.toDto(payment, clientSecret);
             return responseDto;
         }catch (StripeException e){
