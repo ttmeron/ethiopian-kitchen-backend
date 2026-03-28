@@ -1,45 +1,31 @@
 package com.resturant.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 @Service
 public class EmailService {
 
     @Autowired
-    JavaMailSender mailSender;
+    SendGridService sendGridService;
 
     public void sendPasswordResetEmail(String toEmail, String resetToken) {
+        String subject = "Reset Your Password";
+        String resetLink = "https://ethiopian-kitchen-frontend.onrender.com/reset-password?token=" + resetToken;
+
+        String htmlContent = "<html>" +
+                "<body>" +
+                "<h2>Password Reset Request</h2>" +
+                "<p>Click the link below to reset your password:</p>" +
+                "<a href=\"" + resetLink + "\">Reset Password</a>" +
+                "<p>This link expires in 24 hours.</p>" +
+                "</body>" +
+                "</html>";
+
         try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(toEmail);
-            message.setSubject("Password Reset Request - Your Restaurant App");
-
-            String resetUrl = "http://localhost:4200/reset-password?token=" + resetToken;
-
-            String emailText =
-                    "You have requested to reset your password.\n\n" +
-                            "Please click the link below to reset your password:\n" +
-                            resetUrl + "\n\n" +
-                            "This link will expire in 1 hour.\n\n" +
-                            "If you didn't request this, please ignore this email.\n\n" +
-                            "Best regards,\n" +
-                            "Your Restaurant App Team";
-
-            message.setText(emailText);
-            message.setFrom("noreply@yourrestaurantapp.com"); // This can be your Gmail address
-
-            mailSender.send(message);
-
-            System.out.println("✅ Real password reset email sent to: " + toEmail);
-            System.out.println("🔗 Reset URL: " + resetUrl);
-
+            sendGridService.sendEmail(toEmail, subject, htmlContent);
         } catch (Exception e) {
-            System.err.println("❌ Failed to send real email to: " + toEmail);
-            System.err.println("Error: " + e.getMessage());
-            throw new RuntimeException("Failed to send reset email", e);
+            throw new RuntimeException("Failed to send password reset email: " + e.getMessage());
         }
     }
 }
