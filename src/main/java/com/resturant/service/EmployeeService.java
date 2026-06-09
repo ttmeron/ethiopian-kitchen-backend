@@ -24,6 +24,7 @@ public interface EmployeeService {
     List<EmployeeResponseDTO> getActiveEmployees();
 
     List<EmployeeResponseDTO> searchEmployeesByName(String name);
+    void resetEmployeePassword(Long id);
 
     EmployeeResponseDTO updateEmployee(Long id, EmployeeRequestDTO employeeRequestDTO);
 

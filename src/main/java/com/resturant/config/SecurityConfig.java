@@ -59,7 +59,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
 
 
-                .antMatchers("/api/orders/**","/orders/**").hasAnyRole("ADMIN","EMPLOYEE","USER","GUEST")
+                .antMatchers("/api/orders/**","/orders/**").hasAnyRole("ADMIN","EMPLOYEE","USER","GUEST", "EMPLOYEE")
 
 
 

@@ -10,7 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
-import java.util.List;
+import java.util.*;
 
 @RestController
 @RequestMapping("/admin/employees")
@@ -43,7 +43,17 @@ public class EmployeeController {
         EmployeeResponseDTO employee = employeeService.getEmployeeByEmail(email);
         return ResponseEntity.ok(employee);
     }
-
+    @PostMapping("/{id}/reset-password")
+    public ResponseEntity<?> resetEmployeePassword(@PathVariable Long id) {
+        try {
+            employeeService.resetEmployeePassword(id);  // Changed from employeeServiceImpl to employeeService
+            return ResponseEntity.ok(Collections.singletonMap("message", "Password reset successfully. Temporary password sent."));
+        } catch (RuntimeException e) {
+            Map<String,String> errorResponse = new HashMap<>();
+            errorResponse.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
+    }
     @GetMapping("/code/{employeeCode}")
     public ResponseEntity<EmployeeResponseDTO> getEmployeeByCode(@PathVariable String employeeCode) {
         EmployeeResponseDTO employee = employeeService.getEmployeeByCode(employeeCode);

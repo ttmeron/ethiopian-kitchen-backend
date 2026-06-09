@@ -1,7 +1,4 @@
 # Sensitive configuration files
-application.properties
-application-dev.properties
-application-prod.properties
 *.properties
 
 # Keep template files 
@@ -27,3 +24,6 @@ build/
 uploads/
 .env.local
 application.properties
+application.properties
+application_1.properties
+applicationLocal.properties

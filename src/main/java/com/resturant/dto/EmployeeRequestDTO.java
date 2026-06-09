@@ -47,5 +47,6 @@ public class EmployeeRequestDTO {
 
     @NotBlank(message = "Shift is required")
     private String shift;
+    private String password;
 
 }
