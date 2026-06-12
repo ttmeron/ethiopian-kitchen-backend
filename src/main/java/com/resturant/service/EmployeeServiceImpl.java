@@ -53,8 +53,17 @@ public class EmployeeServiceImpl implements EmployeeService{
         user.setRole(employeeRequestDTO.getPosition().toUpperCase());
         user.setEmployee(true);
 
-        // Generate temporary password
-        String tempPassword = generateTemporaryPassword();
+        String tempPassword;
+        if (employeeRequestDTO.getPassword() != null && !employeeRequestDTO.getPassword().isEmpty()) {
+            // Use the password sent from frontend
+            tempPassword = employeeRequestDTO.getPassword();
+            System.out.println("✅ USING PASSWORD FROM FRONTEND: " + tempPassword);
+        } else {
+            // Generate new password only if frontend didn't provide one
+            tempPassword = generateTemporaryPassword();
+            System.out.println("⚠️ GENERATED NEW PASSWORD: " + tempPassword);
+        }
+
         user.setPassword(passwordEncoder.encode(tempPassword));
         user.setTemporaryPassword(true);
         user.setPasswordExpiryDate(LocalDateTime.now().plusDays(7));
@@ -79,6 +88,14 @@ public class EmployeeServiceImpl implements EmployeeService{
             savedEmployee.setEmployeeCode(employeeCode);
             savedEmployee = employeeRepository.save(savedEmployee);
         }
+        System.out.println("=========================================");
+        System.out.println("EMPLOYEE ACCOUNT CREATED");
+        System.out.println("Email: " + employeeRequestDTO.getEmail());
+        System.out.println("Temporary Password: " + tempPassword);
+        System.out.println("Password source: " + (employeeRequestDTO.getPassword() != null ? "FRONTEND" : "BACKEND GENERATED"));
+        System.out.println("Role: " + employeeRequestDTO.getPosition().toUpperCase());
+        System.out.println("=========================================");
+
 
         return employeeMapper.toResponseDTO(savedEmployee);
 
